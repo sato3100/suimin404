@@ -4,7 +4,10 @@
     "allowJs": true,
     "esModuleInterop": true,
     "jsx": "react-native",
-    "lib": ["DOM", "ESNext"],
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
     "moduleResolution": "bundler",
     "noEmit": true,
     "resolveJsonModule": true,
@@ -12,7 +15,9 @@
     "target": "ESNext",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     },
     "strict": true
   },
@@ -24,7 +29,13 @@
     ".eslintrc.cjs",
     ".prettierrc.mjs",
     "babel.config.cjs",
-    "metro.config.js"
+    "metro.config.js",
+    "nativewind-env.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
   ],
-  "exclude": ["node_modules", "jest.config.js"]
+  "exclude": [
+    "node_modules",
+    "jest.config.js"
+  ]
 }
