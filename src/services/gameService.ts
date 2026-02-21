@@ -73,14 +73,14 @@ export function subscribeGame(
   });
 }
 
-// カード効果を適用（gambleはdeckSeed+turnでシード固定）
+// カード効果を適用（新カードシステム対応）
 function applyCardEffect(
   card: Card,
   isPlayer1: boolean,
   p1Bonus: number,
   p2Bonus: number,
-  p1Vol: boolean,
-  p2Vol: boolean,
+  _p1Vol: boolean,
+  _p2Vol: boolean,
   deckSeed: number,
   turn: number,
 ): {
@@ -90,62 +90,33 @@ function applyCardEffect(
   p2Vol: boolean;
   logMsg: string;
 } {
-  switch (card.effectType) {
-    case "boost":
-      return {
-        p1Bonus: isPlayer1 ? p1Bonus + card.effectValue : p1Bonus,
-        p2Bonus: isPlayer1 ? p2Bonus : p2Bonus + card.effectValue,
-        p1Vol,
-        p2Vol,
-        logMsg: isPlayer1
-          ? `📚 ${card.name}を使用！自分 +${card.effectValue}単位`
-          : `🎓 相手が${card.name}を使用！相手 +${card.effectValue}単位`,
-      };
+  const eff = card.useEffect;
+  let logMsg = `⚡ ${card.name}を使用！`;
 
-    case "attack":
-      return {
-        p1Bonus: isPlayer1 ? p1Bonus : p1Bonus + card.effectValue,
-        p2Bonus: isPlayer1 ? p2Bonus + card.effectValue : p2Bonus,
-        p1Vol,
-        p2Vol,
-        logMsg: isPlayer1
-          ? `⚔️ ${card.name}を使用！相手 ${card.effectValue}単位`
-          : `⚔️ 相手が${card.name}を発動！あなた ${card.effectValue}単位`,
-      };
-
-    case "special":
-      return {
-        p1Bonus: isPlayer1 ? p1Bonus + card.effectValue : p1Bonus,
-        p2Bonus: isPlayer1 ? p2Bonus : p2Bonus + card.effectValue,
-        p1Vol: isPlayer1 ? true : p1Vol,
-        p2Vol: isPlayer1 ? p2Vol : true,
-        logMsg: isPlayer1
-          ? `🤝 ${card.name}参加！自分 +${card.effectValue}単位`
-          : `🤝 相手が${card.name}に参加！`,
-      };
-
-    case "gamble": {
-      // 両クライアントで同じ結果になるようシード固定
-      const won = seededRandom(deckSeed + turn * 997)() >= 0.5;
-      const change = won ? card.effectValue : -card.effectValue;
-      return {
-        p1Bonus: isPlayer1 ? p1Bonus + change : p1Bonus,
-        p2Bonus: isPlayer1 ? p2Bonus : p2Bonus + change,
-        p1Vol,
-        p2Vol,
-        logMsg: isPlayer1
-          ? won
-            ? `🎰 徹夜で勉強成功！+${card.effectValue}単位`
-            : `🎰 遊んでしまった... -${card.effectValue}単位`
-          : won
-            ? `🎰 相手の徹夜勉強が成功！`
-            : `🎰 相手の徹夜が裏目に！`,
-      };
-    }
-
-    default:
-      return { p1Bonus, p2Bonus, p1Vol, p2Vol, logMsg: "" };
+  // 自己ボーナス
+  if (eff.selfBonus !== undefined && eff.selfBonus !== 0) {
+    if (isPlayer1) p1Bonus += eff.selfBonus;
+    else p2Bonus += eff.selfBonus;
+    logMsg += eff.selfBonus > 0 ? ` +${eff.selfBonus}単位` : ` ${eff.selfBonus}単位`;
   }
+
+  // 相手ボーナス
+  if (eff.opponentBonus !== undefined && eff.opponentBonus !== 0) {
+    if (isPlayer1) p2Bonus += eff.opponentBonus;
+    else p1Bonus += eff.opponentBonus;
+    logMsg += ` 相手${eff.opponentBonus}単位`;
+  }
+
+  // ギャンブル（シード固定）
+  if (eff.gamble) {
+    const won = seededRandom(deckSeed + turn * 997)() >= 0.5;
+    const change = won ? eff.gamble.win : eff.gamble.lose;
+    if (isPlayer1) p1Bonus += change;
+    else p2Bonus += change;
+    logMsg += won ? ` 成功！+${eff.gamble.win}単位` : ` 失敗... ${eff.gamble.lose}単位`;
+  }
+
+  return { p1Bonus, p2Bonus, p1Vol: _p1Vol, p2Vol: _p2Vol, logMsg };
 }
 
 function computeCredits(hand: Card[], bonus: number): number {

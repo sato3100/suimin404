@@ -1,21 +1,33 @@
 import { GameState, useCard, passTurn } from "./engine";
 
 /**
- * CPU AI（Phase 1: ランダム行動）
- * - 50%の確率でカードを使用、50%でパス
- * - 攻撃カードを優先的に使う傾向あり
+ * CPU AI
+ * - 攻撃/妨害カードを優先
+ * - 手札が多いときは使用寄り、少ないときはキープ寄り
  */
 export function cpuAction(state: GameState): GameState {
   const hand = state.cpuHand;
   if (hand.length === 0) return passTurn(state);
 
-  // 60%の確率でカードを使う
-  if (Math.random() < 0.6) {
-    // 攻撃カードがあれば優先
+  // 65%の確率でカードを使う
+  if (Math.random() < 0.65) {
+    // 相手を妨害するカードを優先
     const attackIdx = hand.findIndex(
-      (c) => c.effectType === "attack" || c.effectType === "gamble",
+      (c) =>
+        (c.useEffect.opponentBonus !== undefined && c.useEffect.opponentBonus < 0) ||
+        c.useEffect.discardOpponent !== undefined,
     );
-    const idx = attackIdx >= 0 ? attackIdx : Math.floor(Math.random() * hand.length);
+    // 高ボーナスカードを次に優先
+    const boostIdx = hand.findIndex(
+      (c) => (c.useEffect.selfBonus ?? 0) >= 10,
+    );
+
+    const idx =
+      attackIdx >= 0
+        ? attackIdx
+        : boostIdx >= 0
+          ? boostIdx
+          : Math.floor(Math.random() * hand.length);
     return useCard(state, idx);
   }
 

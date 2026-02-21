@@ -1,56 +1,58 @@
-import { useEffect, useRef } from "react";
-import { View, Text, Pressable } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  ImageBackground,
+  Image,
+  useWindowDimensions,
+} from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withDelay,
-  Easing,
-} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
 
-// ─── アバター（丸頭 + アーチ型ボディのシルエット） ──────────────────────────
-function Avatar({ color }: { color: string }) {
+const BG = require("@/assets/images/game/bg-parchment.png");
+const IMG_TURN = require("@/assets/images/game/turn-badge.png");
+const IMG_CREDIT = require("@/assets/images/game/credit-badge.png");
+
+// ─── 名前プレート（turn-badge + テキスト） ──────────────────────────────────
+function NamePlate({ name, width }: { name: string; width: number }) {
   return (
-    <View style={{ alignItems: "center" }}>
-      <View
-        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: color }}
+    <View
+      className="items-center justify-center"
+      style={{ width, height: width * 0.36 }}
+    >
+      <Image
+        source={IMG_TURN}
+        className="absolute w-full h-full"
+        resizeMode="contain"
       />
-      <View
-        style={{
-          width: 70,
-          height: 42,
-          borderTopLeftRadius: 35,
-          borderTopRightRadius: 35,
-          backgroundColor: color,
-          marginTop: 3,
-        }}
-      />
+      <Text
+        className="font-black"
+        style={{ fontSize: 15, color: "#2a1a0a" }}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
     </View>
   );
 }
 
-// ─── マッチング画面 ─────────────────────────────────────────────────────────
+// ─── マッチング画面（軽量版） ────────────────────────────────────────────────
 export default function MatchingScreen() {
   const { name, mode } = useLocalSearchParams<{ name: string; mode?: string }>();
   const isCpu = mode === "cpu";
   const hasNavigated = useRef(false);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const plateW = width * 0.48;
 
-  // アニメーション値（横スライドイン + VS登場）
-  const opponentX = useSharedValue(400);
-  const opponentOpacity = useSharedValue(0);
-  const selfX = useSharedValue(-400);
-  const selfOpacity = useSharedValue(0);
-  const vsScale = useSharedValue(0);
-  const vsOpacity = useSharedValue(0);
-  const infoOpacity = useSharedValue(0);
-  const pulse = useSharedValue(1);
-  const lineWidth = useSharedValue(0);
+  // シンプルなフェードイン用state
+  const [showOpponent, setShowOpponent] = useState(false);
+  const [showSelf, setShowSelf] = useState(false);
+  const [showVs, setShowVs] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   // CPU対戦：ゲーム画面へ遷移
   function navigateToGame() {
@@ -59,43 +61,13 @@ export default function MatchingScreen() {
     router.replace({ pathname: "/game", params: { mode: "cpu", playerName: name } });
   }
 
-  // スライドインアニメーション開始
+  // 段階的にフェードイン（setTimeout で軽量に）
   useEffect(() => {
-    // 相手: 右からスライドイン
-    opponentX.value = withSpring(0, { damping: 14, stiffness: 90 });
-    opponentOpacity.value = withTiming(1, { duration: 200 });
-
-    // 自分: 左からスライドイン（200ms遅延）
-    selfX.value = withDelay(200, withSpring(0, { damping: 14, stiffness: 90 }));
-    selfOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
-
-    // 斜め線: 350ms後にフェードイン
-    lineWidth.value = withDelay(350, withTiming(1, { duration: 200 }));
-
-    // VS: 450ms後にバウンス登場
-    vsOpacity.value = withDelay(450, withTiming(1, { duration: 80 }));
-    vsScale.value = withDelay(
-      450,
-      withSequence(
-        withTiming(1.5, { duration: 80, easing: Easing.out(Easing.cubic) }),
-        withSpring(1, { damping: 5, stiffness: 200 }),
-      ),
-    );
-
-    // 名前タグ: 650ms後にフェードイン
-    infoOpacity.value = withDelay(650, withTiming(1, { duration: 300 }));
-
-    // パルスアニメーション（1.4秒後に開始）
-    setTimeout(() => {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(1.06, { duration: 800, easing: Easing.inOut(Easing.sin) }),
-          withTiming(1.0, { duration: 800, easing: Easing.inOut(Easing.sin) }),
-        ),
-        -1,
-        false,
-      );
-    }, 1400);
+    const t1 = setTimeout(() => setShowOpponent(true), 200);
+    const t2 = setTimeout(() => setShowSelf(true), 400);
+    const t3 = setTimeout(() => setShowVs(true), 600);
+    const t4 = setTimeout(() => setShowInfo(true), 800);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, []);
 
   // CPU対戦: 2.5秒後に自動遷移
@@ -146,102 +118,84 @@ export default function MatchingScreen() {
         return null;
       })();
 
-  // アニメーションスタイル
-  const opponentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: opponentX.value }],
-    opacity: opponentOpacity.value,
-  }));
-  const selfStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: selfX.value }],
-    opacity: selfOpacity.value,
-  }));
-  const vsStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: vsScale.value * pulse.value }],
-    opacity: vsOpacity.value,
-  }));
-  const infoStyle = useAnimatedStyle(() => ({ opacity: infoOpacity.value }));
-  const lineStyle = useAnimatedStyle(() => ({ opacity: lineWidth.value }));
-
   return (
-    <View style={{ flex: 1, backgroundColor: "#0f172a" }}>
+    <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#8B7355" }}>
       <StatusBar style="light" />
 
-      {/* 上半分: 相手（右からスライドイン） */}
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "flex-end", paddingRight: 40, paddingTop: 60 }}>
-        <Animated.View style={[{ alignItems: "center" }, opponentStyle]}>
-          <Avatar color="#475569" />
-        </Animated.View>
-        <Animated.View style={[{ marginTop: 12 }, infoStyle]}>
-          <View style={{ backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-              {opponentInfo?.name ?? "検索中..."}
-            </Text>
-            <Text style={{ color: "#fbbf24", fontSize: 12, marginTop: 2 }}>
-              Rate {opponentInfo?.rating ?? "---"}
-            </Text>
-          </View>
-        </Animated.View>
-      </View>
-
-      {/* 中央: 斜め線 + VS */}
-      <View style={{ height: 80, justifyContent: "center", alignItems: "center" }}>
-        <Animated.View
-          style={[
-            {
-              position: "absolute",
-              width: "120%",
-              height: 3,
-              backgroundColor: "#dc2626",
-              transform: [{ rotate: "-8deg" }],
-            },
-            lineStyle,
-          ]}
-        />
-        <Animated.View
-          style={[
-            {
-              width: 72,
-              height: 72,
-              borderRadius: 36,
-              backgroundColor: "#dc2626",
-              alignItems: "center",
-              justifyContent: "center",
-              shadowColor: "#dc2626",
-              shadowOpacity: 0.6,
-              shadowRadius: 16,
-              elevation: 10,
-              borderWidth: 3,
-              borderColor: "#fca5a5",
-            },
-            vsStyle,
-          ]}
-        >
-          <Text style={{ color: "#fff", fontWeight: "900", fontSize: 22, letterSpacing: 2 }}>
-            VS
+      {/* 上半分: 相手 */}
+      <View
+        className="flex-1 items-start px-8"
+        style={{ justifyContent: "center", paddingTop: insets.top + 20 }}
+      >
+        <View style={{ opacity: showInfo ? 1 : 0 }}>
+          <Text
+            className="font-bold mb-1"
+            style={{ fontSize: 13, color: "#5a4020" }}
+          >
+            対戦レート：{opponentInfo?.rating ?? "---"}
           </Text>
-        </Animated.View>
+        </View>
+        <View style={{ opacity: showOpponent ? 1 : 0 }}>
+          <NamePlate
+            name={opponentInfo?.name ?? "検索中..."}
+            width={plateW}
+          />
+        </View>
       </View>
 
-      {/* 下半分: 自分（左からスライドイン） */}
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "flex-start", paddingLeft: 40, paddingBottom: 20 }}>
-        <Animated.View style={[{ alignItems: "center" }, selfStyle]}>
-          <Avatar color="#3b82f6" />
-        </Animated.View>
-        <Animated.View style={[{ marginTop: 12 }, infoStyle]}>
-          <View style={{ backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
-              {name ?? "あなた"}
-            </Text>
-            <Text style={{ color: "#fbbf24", fontSize: 12, marginTop: 2 }}>
-              Rate 1000
+      {/* 中央: VS */}
+      <View className="h-20 items-center justify-center">
+        <View
+          style={{
+            position: "absolute",
+            width: "120%",
+            height: 2,
+            backgroundColor: "#A08050",
+            transform: [{ rotate: "-8deg" }],
+            opacity: showVs ? 1 : 0,
+          }}
+        />
+        <View style={{ opacity: showVs ? 1 : 0 }}>
+          <View
+            className="items-center justify-center"
+            style={{ width: 72, height: 72 }}
+          >
+            <Image
+              source={IMG_CREDIT}
+              className="absolute w-full h-full"
+              resizeMode="contain"
+            />
+            <Text
+              className="font-black"
+              style={{ fontSize: 22, color: "#2a1a0a", letterSpacing: 2 }}
+            >
+              VS
             </Text>
           </View>
-        </Animated.View>
+        </View>
+      </View>
+
+      {/* 下半分: 自分 */}
+      <View className="flex-1 items-end px-8 justify-center pb-5">
+        <View style={{ opacity: showSelf ? 1 : 0 }}>
+          <NamePlate name={name ?? "あなた"} width={plateW} />
+        </View>
+        <View style={{ opacity: showInfo ? 1 : 0 }}>
+          <Text
+            className="font-bold mt-1"
+            style={{ fontSize: 13, color: "#5a4020" }}
+          >
+            対戦レート：1000
+          </Text>
+        </View>
       </View>
 
       {/* ステータス + キャンセル */}
-      <Animated.View style={[{ paddingBottom: 56, alignItems: "center" }, infoStyle]}>
-        <Text style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+      <View
+        className="items-center"
+        style={{ paddingBottom: insets.bottom + 24, opacity: showInfo ? 1 : 0 }}
+      >
+        <Text className="mb-4" style={{ color: "#8B7355", fontSize: 13 }}>
           {isCpu
             ? "CPU対戦を準備中..."
             : opponentInfo
@@ -250,27 +204,26 @@ export default function MatchingScreen() {
         </Text>
         {!isCpu && (
           <Pressable
+            className="rounded-full px-7 py-2.5"
             style={{
               borderWidth: 1,
-              borderColor: "#475569",
-              borderRadius: 20,
-              paddingHorizontal: 28,
-              paddingVertical: 10,
+              borderColor: "#A08050",
+              backgroundColor: "rgba(0,0,0,0.15)",
             }}
             onPress={() => {
               cancel();
               router.back();
             }}
           >
-            <Text style={{ color: "#64748b", fontSize: 14 }}>キャンセル</Text>
+            <Text style={{ color: "#5a4020", fontSize: 14 }}>キャンセル</Text>
           </Pressable>
         )}
         {!isCpu && state.status === "error" && (
-          <Text style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>
+          <Text className="mt-2" style={{ color: "#dc2626", fontSize: 13 }}>
             {state.errorMessage}
           </Text>
         )}
-      </Animated.View>
-    </View>
+      </View>
+    </ImageBackground>
   );
 }
