@@ -6,11 +6,12 @@ import {
   TOTAL_TURNS,
 } from "@/data/cards";
 
+// ─── 型定義 ─────────────────────────────────────────────────────────────────
 export type GamePhase = "draw" | "action" | "ended";
 
 export interface GameState {
   phase: GamePhase;
-  turn: number; // 1-8
+  turn: number;
   deck: Card[];
   playerHand: Card[];
   cpuHand: Card[];
@@ -21,25 +22,49 @@ export interface GameState {
   log: string[];
 }
 
-export function isPlayerTurn(turn: number): boolean {
-  return turn % 2 === 1; // 奇数ターン = プレイヤー
+export interface GameResult {
+  playerCredits: number;
+  cpuCredits: number;
+  playerGraduated: boolean;
+  cpuGraduated: boolean;
+  playerWon: boolean;
+  playerUsedVolunteer: boolean;
+  ending: string;
+  endingTitle: string;
 }
 
+// ─── 定数 ───────────────────────────────────────────────────────────────────
+export const INITIAL_HAND_SIZE = 3;
+
+// ─── ターン判定 ─────────────────────────────────────────────────────────────
+/** 奇数ターン = プレイヤー、偶数ターン = CPU */
+export function isPlayerTurn(turn: number): boolean {
+  return turn % 2 === 1;
+}
+
+// ─── ゲーム初期化 ───────────────────────────────────────────────────────────
+/** デッキを生成し、各プレイヤーに初期手札3枚を配る */
 export function createInitialState(): GameState {
+  const deck = createDeck();
+  const playerHand = deck.splice(-INITIAL_HAND_SIZE);
+  const cpuHand = deck.splice(-INITIAL_HAND_SIZE);
+
   return {
     phase: "draw",
     turn: 1,
-    deck: createDeck(),
-    playerHand: [],
-    cpuHand: [],
+    deck,
+    playerHand,
+    cpuHand,
     playerBonusCredits: 0,
     cpuBonusCredits: 0,
     playerUsedVolunteer: false,
     cpuUsedVolunteer: false,
-    log: ["🎓 卒業チキンレース開始！"],
+    log: [],
   };
 }
 
+// ─── カードドロー ───────────────────────────────────────────────────────────
+/** デッキから1枚引いて手札に加える */
 export function drawCard(state: GameState): GameState {
   if (state.phase !== "draw" || state.deck.length === 0) return state;
 
@@ -62,6 +87,8 @@ export function drawCard(state: GameState): GameState {
   };
 }
 
+// ─── カード使用 ─────────────────────────────────────────────────────────────
+/** 手札のカードを使用して効果を適用する */
 export function useCard(state: GameState, cardIndex: number): GameState {
   if (state.phase !== "action") return state;
 
@@ -141,6 +168,8 @@ export function useCard(state: GameState, cardIndex: number): GameState {
   });
 }
 
+// ─── パス ───────────────────────────────────────────────────────────────────
+/** 行動せずにターンを終了する */
 export function passTurn(state: GameState): GameState {
   if (state.phase !== "action") return state;
 
@@ -154,6 +183,7 @@ export function passTurn(state: GameState): GameState {
   });
 }
 
+// ─── ターン進行（内部関数） ─────────────────────────────────────────────────
 function advanceTurn(state: GameState): GameState {
   if (state.turn >= TOTAL_TURNS) {
     return { ...state, phase: "ended" };
@@ -161,27 +191,21 @@ function advanceTurn(state: GameState): GameState {
   return { ...state, turn: state.turn + 1, phase: "draw" };
 }
 
+// ─── 単位計算 ───────────────────────────────────────────────────────────────
+/** プレイヤーの合計単位数 = 初期単位 + 手札キープ値 + ボーナス */
 export function getPlayerCredits(state: GameState): number {
   const handValue = state.playerHand.reduce((s, c) => s + c.keepValue, 0);
   return STARTING_CREDITS + handValue + state.playerBonusCredits;
 }
 
+/** CPUの合計単位数 */
 export function getCpuCredits(state: GameState): number {
   const handValue = state.cpuHand.reduce((s, c) => s + c.keepValue, 0);
   return STARTING_CREDITS + handValue + state.cpuBonusCredits;
 }
 
-export interface GameResult {
-  playerCredits: number;
-  cpuCredits: number;
-  playerGraduated: boolean;
-  cpuGraduated: boolean;
-  playerWon: boolean;
-  playerUsedVolunteer: boolean;
-  ending: string;
-  endingTitle: string;
-}
-
+// ─── 結果判定 ───────────────────────────────────────────────────────────────
+/** ゲーム終了時の勝敗・エンディングを判定する */
 export function determineResult(state: GameState): GameResult {
   const playerCredits = getPlayerCredits(state);
   const cpuCredits = getCpuCredits(state);
@@ -189,21 +213,21 @@ export function determineResult(state: GameState): GameResult {
   const playerGrad = playerCredits >= GRADUATION_CREDITS;
   const cpuGrad = cpuCredits >= GRADUATION_CREDITS;
 
+  // 勝敗判定: 卒業者が勝ち、同条件なら124に近い方が勝ち
   let playerWon: boolean;
   if (playerGrad && !cpuGrad) {
     playerWon = true;
   } else if (!playerGrad && cpuGrad) {
     playerWon = false;
   } else {
-    // 両者同条件: 124に近い方が勝ち
     const pDiff = Math.abs(playerCredits - GRADUATION_CREDITS);
     const cDiff = Math.abs(cpuCredits - GRADUATION_CREDITS);
     playerWon = pDiff <= cDiff;
   }
 
+  // エンディング分岐
   let ending: string;
   let endingTitle: string;
-
   if (playerCredits === GRADUATION_CREDITS) {
     ending = "perfect";
     endingTitle = "伝説の省エネ卒業";
