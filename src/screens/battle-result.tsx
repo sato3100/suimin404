@@ -1,5 +1,12 @@
 import { useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  ImageBackground,
+  Image,
+  useWindowDimensions,
+} from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import Animated, {
@@ -13,49 +20,36 @@ import Animated, {
 } from "react-native-reanimated";
 import { getLastResult, getLastOnlineResult } from "@/game/store";
 
-// ─── スコアカード（各プレイヤーの最終単位表示） ──────────────────────────────
-function ScoreCard({
-  label,
-  credits,
-  graduated,
-}: {
-  label: string;
-  credits: number;
-  graduated: boolean;
-}) {
-  return (
-    <View
-      style={{
-        width: "100%",
-        maxWidth: 300,
-        backgroundColor: "#1e293b",
-        borderRadius: 16,
-        padding: 20,
-        borderWidth: graduated ? 2 : 0,
-        borderColor: "#16a34a",
-      }}
-    >
-      <Text style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>
-        {label}
-      </Text>
-      <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-        <Text style={{ fontSize: 14, color: "#94a3b8" }}>最終取得 </Text>
-        <Text
-          style={{
-            fontSize: 32,
-            fontWeight: "900",
-            color: graduated ? "#4ade80" : "#f87171",
-          }}
-        >
-          {credits}
-        </Text>
-        <Text style={{ fontSize: 14, color: "#94a3b8" }}> 単位</Text>
-      </View>
-    </View>
-  );
+const BG = require("@/assets/images/game/bg-parchment.png");
+
+// 結果画像素材
+const IMG_GRADUATE_WIN = require("@/assets/images/対戦終了_卒業_勝利.png");
+const IMG_GRADUATE_LOSE = require("@/assets/images/対戦終了_卒業＿敗北.png");
+const IMG_REPEAT_WIN = require("@/assets/images/対戦終了_留年_勝利.png");
+const IMG_REPEAT_LOSE = require("@/assets/images/対戦終了_留年_敗北.png");
+
+// ─── 結果画像選択 ───────────────────────────────────────────────────────────
+function getResultImage(credits: number, won: boolean) {
+  if (credits >= 124) {
+    return won ? IMG_GRADUATE_WIN : IMG_GRADUATE_LOSE;
+  }
+  if (credits >= 94) {
+    return won ? IMG_REPEAT_WIN : IMG_REPEAT_LOSE;
+  }
+  // 中退（94未満）は留年_敗北画像を使用
+  return IMG_REPEAT_LOSE;
 }
 
-// ─── 結果表示コンテンツ（WIN/LOSE + スコア比較） ─────────────────────────────
+// ─── エンディングラベル判定 ──────────────────────────────────────────────────
+function getEndingLabel(credits: number): string {
+  if (credits === 124) return "伝説の省エネ卒業";
+  if (credits >= 131) return "ガリ勉";
+  if (credits >= 124) return "卒業";
+  if (credits >= 94) return "留年";
+  return "中退";
+}
+
+// ─── 結果表示コンテンツ ─────────────────────────────────────────────────────
 function ResultContent({
   won,
   myCredits,
@@ -63,6 +57,7 @@ function ResultContent({
   opponentLabel,
   myGraduated,
   opponentGraduated,
+  endingLabel,
   resultPath,
 }: {
   won: boolean;
@@ -71,8 +66,12 @@ function ResultContent({
   opponentLabel: string;
   myGraduated: boolean;
   opponentGraduated: boolean;
+  endingLabel: string;
   resultPath: string;
 }) {
+  const { width } = useWindowDimensions();
+  const resultImage = getResultImage(myCredits, won);
+
   // 8秒後にLINE報告画面へ自動遷移
   useEffect(() => {
     const t = setTimeout(() => router.replace(resultPath as any), 8000);
@@ -80,91 +79,115 @@ function ResultContent({
   }, []);
 
   // アニメーション用の値
-  const titleScale = useSharedValue(0);
-  const titleOpacity = useSharedValue(0);
-  const card1Opacity = useSharedValue(0);
-  const card2Opacity = useSharedValue(0);
+  const imgScale = useSharedValue(0);
+  const imgOpacity = useSharedValue(0);
+  const textOpacity = useSharedValue(0);
   const hintOpacity = useSharedValue(0);
 
-  // 段階的にフェードイン
   useEffect(() => {
-    card1Opacity.value = withDelay(200, withTiming(1, { duration: 300 }));
-    titleOpacity.value = withDelay(500, withTiming(1, { duration: 200 }));
-    titleScale.value = withDelay(
-      500,
+    imgOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
+    imgScale.value = withDelay(
+      200,
       withSequence(
-        withTiming(1.3, { duration: 120, easing: Easing.out(Easing.cubic) }),
-        withSpring(1, { damping: 6, stiffness: 180 }),
+        withTiming(1.1, { duration: 200, easing: Easing.out(Easing.cubic) }),
+        withSpring(1, { damping: 8, stiffness: 180 }),
       ),
     );
-    card2Opacity.value = withDelay(800, withTiming(1, { duration: 300 }));
+    textOpacity.value = withDelay(600, withTiming(1, { duration: 300 }));
     hintOpacity.value = withDelay(1500, withTiming(1, { duration: 500 }));
   }, []);
 
-  const titleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: titleScale.value }],
-    opacity: titleOpacity.value,
+  const imgStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: imgScale.value }],
+    opacity: imgOpacity.value,
   }));
-  const c1 = useAnimatedStyle(() => ({ opacity: card1Opacity.value }));
-  const c2 = useAnimatedStyle(() => ({ opacity: card2Opacity.value }));
-  const hint = useAnimatedStyle(() => ({ opacity: hintOpacity.value }));
+  const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
+  const hintStyle = useAnimatedStyle(() => ({ opacity: hintOpacity.value }));
+
+  // 中退の場合は画像の上にテキストオーバーレイ
+  const isDropout = myCredits < 94;
 
   return (
     <Pressable
-      style={{ flex: 1, backgroundColor: "#0f172a" }}
+      className="flex-1"
       onPress={() => router.replace(resultPath as any)}
     >
-      <StatusBar style="light" />
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 24,
-          gap: 20,
-        }}
-      >
-        {/* 相手スコア */}
-        <Animated.View style={c1}>
-          <ScoreCard
-            label={opponentLabel}
-            credits={opponentCredits}
-            graduated={opponentGraduated}
-          />
-        </Animated.View>
+      <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#8B7355" }}>
+        <StatusBar style="light" />
+        <View className="flex-1 items-center justify-center px-6" style={{ gap: 12 }}>
+          {/* 結果画像 */}
+          <Animated.View style={[{ alignItems: "center" }, imgStyle]}>
+            <Image
+              source={resultImage}
+              style={{ width: width * 0.92, height: width * 0.92 * 0.65 }}
+              resizeMode="contain"
+            />
+            {/* 中退の場合のオーバーレイテキスト */}
+            {isDropout && (
+              <View
+                className="absolute items-center justify-center"
+                style={{
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                }}
+              >
+                <Text
+                  className="font-black"
+                  style={{
+                    fontSize: 36,
+                    color: "#fff",
+                    textShadowColor: "rgba(0,0,0,0.8)",
+                    textShadowRadius: 8,
+                    textShadowOffset: { width: 2, height: 2 },
+                  }}
+                >
+                  中退
+                </Text>
+              </View>
+            )}
+          </Animated.View>
 
-        {/* 勝敗タイトル */}
-        <Animated.View style={titleStyle}>
-          <Text
-            style={{
-              fontSize: 44,
-              fontWeight: "900",
-              color: won ? "#eab308" : "#64748b",
-              textAlign: "center",
-              textShadowColor: won ? "rgba(234,179,8,0.4)" : "transparent",
-              textShadowRadius: 20,
-            }}
-          >
-            {won ? "YOU WIN!" : "YOU LOSE..."}
-          </Text>
-        </Animated.View>
+          {/* エンディング + 勝敗テキスト */}
+          <Animated.View className="items-center" style={textStyle}>
+            <Text
+              className="font-black text-center"
+              style={{
+                fontSize: 38,
+                color: "#2a1a0a",
+                textShadowColor: "rgba(160,128,80,0.3)",
+                textShadowRadius: 12,
+              }}
+            >
+              {endingLabel}
+            </Text>
+            <Text
+              className="font-black text-center mt-1"
+              style={{
+                fontSize: 22,
+                color: won ? "#A08050" : "#8B7355",
+              }}
+            >
+              {won ? "YOU WIN!" : "YOU LOSE..."}
+            </Text>
+          </Animated.View>
 
-        {/* 自分スコア */}
-        <Animated.View style={c2}>
-          <ScoreCard
-            label="🧑‍🎓 あなた"
-            credits={myCredits}
-            graduated={myGraduated}
-          />
-        </Animated.View>
+          {/* スコア表示 */}
+          <Animated.View className="items-center mt-2" style={textStyle}>
+            <Text style={{ fontSize: 13, color: "#5a4020" }}>
+              {opponentLabel}: {opponentCredits}単位 / あなた: {myCredits}単位
+            </Text>
+          </Animated.View>
 
-        {/* タップヒント */}
-        <Animated.View style={hint}>
-          <Text style={{ color: "#475569", fontSize: 12, marginTop: 12 }}>
-            タップでLINE報告へ
-          </Text>
-        </Animated.View>
-      </View>
+          {/* タップヒント */}
+          <Animated.View style={hintStyle}>
+            <Text className="mt-3" style={{ color: "#8B7355", fontSize: 13 }}>
+              タップでLINE報告へ
+            </Text>
+          </Animated.View>
+        </View>
+      </ImageBackground>
     </Pressable>
   );
 }
@@ -178,11 +201,11 @@ export default function BattleResultScreen() {
     const result = getLastOnlineResult();
     if (!result) {
       return (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a" }}>
-          <Pressable onPress={() => router.replace("/")}>
-            <Text style={{ color: "#94a3b8" }}>タイトルに戻る</Text>
+        <ImageBackground source={BG} className="flex-1 items-center justify-center" style={{ backgroundColor: "#8B7355" }}>
+          <Pressable onPress={() => router.replace("/")} className="rounded-xl px-8 py-4" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
+            <Text style={{ color: "#F5E6C8", fontSize: 18, fontWeight: "bold" }}>タイトルに戻る</Text>
           </Pressable>
-        </View>
+        </ImageBackground>
       );
     }
     return (
@@ -190,9 +213,10 @@ export default function BattleResultScreen() {
         won={result.won}
         myCredits={result.myCredits}
         opponentCredits={result.opponentCredits}
-        opponentLabel={`🎓 ${result.opponentName}`}
+        opponentLabel={result.opponentName}
         myGraduated={result.myGraduated}
         opponentGraduated={result.opponentGraduated}
+        endingLabel={getEndingLabel(result.myCredits)}
         resultPath="/result?mode=online"
       />
     );
@@ -202,11 +226,11 @@ export default function BattleResultScreen() {
   const result = getLastResult();
   if (!result) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a" }}>
-        <Pressable onPress={() => router.replace("/")}>
-          <Text style={{ color: "#94a3b8" }}>タイトルに戻る</Text>
+      <ImageBackground source={BG} className="flex-1 items-center justify-center" style={{ backgroundColor: "#8B7355" }}>
+        <Pressable onPress={() => router.replace("/")} className="rounded-xl px-8 py-4" style={{ backgroundColor: "rgba(0,0,0,0.3)" }}>
+          <Text style={{ color: "#F5E6C8", fontSize: 18, fontWeight: "bold" }}>タイトルに戻る</Text>
         </Pressable>
-      </View>
+      </ImageBackground>
     );
   }
   return (
@@ -214,9 +238,10 @@ export default function BattleResultScreen() {
       won={result.playerWon}
       myCredits={result.playerCredits}
       opponentCredits={result.cpuCredits}
-      opponentLabel="🤖 CPU"
+      opponentLabel="CPU"
       myGraduated={result.playerGraduated}
       opponentGraduated={result.cpuGraduated}
+      endingLabel={getEndingLabel(result.playerCredits)}
       resultPath="/result"
     />
   );

@@ -401,9 +401,15 @@ function LineScreen({
             </View>
             <Pressable
               onPress={() => router.replace("/")}
-              style={{ marginTop: 16 }}
+              style={{
+                marginTop: 20,
+                backgroundColor: "rgba(0,0,0,0.35)",
+                borderRadius: 14,
+                paddingHorizontal: 32,
+                paddingVertical: 14,
+              }}
             >
-              <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
+              <Text style={{ fontSize: 18, color: "#fff", fontWeight: "bold" }}>
                 タイトルに戻る
               </Text>
             </Pressable>

@@ -111,16 +111,16 @@ function FieldCard({ card, cardW, cardH }: { card: Card | null; cardW: number; c
     return (
       <View
         className="rounded-lg"
-        style={{ width: cardW, height: cardH, borderWidth: 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.1)" }}
+        style={{ width: cardW, height: cardH, borderWidth: 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.15)" }}
       />
     );
 
   return (
-    <Animated.View style={[{ width: cardW, height: cardH, borderRadius: 8, overflow: "hidden" }, anim]}>
-      <ImageBackground source={IMG_CARD} className="flex-1 items-center justify-center p-1.5" resizeMode="cover">
-        <View className="rounded-md px-2 py-1 items-center" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
-          <Text className="font-black text-white" style={{ fontSize: 11 }} numberOfLines={1}>{card.name}</Text>
-          <Text style={{ fontSize: 9, color: "#D4C4A0" }}>{card.keepValue}単位</Text>
+    <Animated.View style={[{ width: cardW, height: cardH, borderRadius: 10, overflow: "hidden" }, anim]}>
+      <ImageBackground source={IMG_CARD} className="flex-1 items-center justify-center p-2" resizeMode="cover">
+        <View className="rounded-lg px-3 py-2 items-center" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <Text className="font-black text-white" style={{ fontSize: 14 }} numberOfLines={1}>{card.name}</Text>
+          <Text style={{ fontSize: 12, color: "#D4C4A0" }}>{card.keepValue}単位</Text>
         </View>
       </ImageBackground>
     </Animated.View>
@@ -131,30 +131,38 @@ function DeckPile({ count, w, h }: { count: number; w: number; h: number }) {
   return (
     <View className="items-center">
       <View style={{ width: w, height: h, position: "relative" }}>
-        {count > 2 && <Image source={IMG_SLEEVE} style={{ position: "absolute", top: -3, left: -2, width: w, height: h, borderRadius: 8, opacity: 0.5 }} resizeMode="cover" />}
-        {count > 1 && <Image source={IMG_SLEEVE} style={{ position: "absolute", top: -1, left: -1, width: w, height: h, borderRadius: 8, opacity: 0.7 }} resizeMode="cover" />}
-        <Image source={IMG_SLEEVE} style={{ width: w, height: h, borderRadius: 8 }} resizeMode="cover" />
+        {count > 2 && <Image source={IMG_SLEEVE} style={{ position: "absolute", top: -3, left: -2, width: w, height: h, borderRadius: 10, opacity: 0.5 }} resizeMode="cover" />}
+        {count > 1 && <Image source={IMG_SLEEVE} style={{ position: "absolute", top: -1, left: -1, width: w, height: h, borderRadius: 10, opacity: 0.7 }} resizeMode="cover" />}
+        <Image source={IMG_SLEEVE} style={{ width: w, height: h, borderRadius: 10 }} resizeMode="cover" />
       </View>
     </View>
   );
 }
 
-function CreditBadge({ value, bonus }: { value: number; bonus: number }) {
-  const size = 60;
+function CreditBadge({ value, bonus, size = 100 }: { value: number; bonus: number; size?: number }) {
   return (
     <View className="items-center justify-center" style={{ width: size, height: size }}>
       <Image source={IMG_CREDIT} className="absolute" style={{ width: size, height: size }} resizeMode="contain" />
       <View className="flex-row items-baseline">
-        <Text className="font-black" style={{ fontSize: 17, color: "#1a1a1a" }}>{value}</Text>
-        {bonus > 0 && <Text className="font-bold" style={{ fontSize: 10, color: "#5a4020" }}>+{bonus}</Text>}
+        <Text className="font-black" style={{ fontSize: size * 0.32, color: "#1a1a1a" }}>{value}</Text>
+        {bonus > 0 && <Text className="font-bold" style={{ fontSize: size * 0.16, color: "#5a4020" }}>+{bonus}</Text>}
       </View>
+    </View>
+  );
+}
+
+function TurnBadge({ text, width: w }: { text: string; width: number }) {
+  return (
+    <View className="items-center justify-center" style={{ width: w, height: w * 0.36 }}>
+      <Image source={IMG_TURN} className="absolute w-full h-full" resizeMode="contain" />
+      <Text className="font-black" style={{ fontSize: 14, color: "#2a1a0a" }}>{text}</Text>
     </View>
   );
 }
 
 function FaceDownCard({ visible, w, h }: { visible: boolean; w: number; h: number }) {
   return (
-    <View className="rounded-md overflow-hidden" style={{ width: w, height: h }}>
+    <View className="rounded-lg overflow-hidden" style={{ width: w, height: h }}>
       {visible ? (
         <Image source={IMG_SLEEVE} className="w-full h-full" resizeMode="cover" />
       ) : (
@@ -168,7 +176,7 @@ function HandCard({ card, isSelected, onPress, disabled, w, h }: {
   card: Card; isSelected: boolean; onPress: () => void; disabled: boolean; w: number; h: number;
 }) {
   const ty = useSharedValue(0);
-  useEffect(() => { ty.value = withTiming(isSelected ? -12 : 0, { duration: 120 }); }, [isSelected]);
+  useEffect(() => { ty.value = withTiming(isSelected ? -14 : 0, { duration: 120 }); }, [isSelected]);
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
 
   return (
@@ -176,7 +184,7 @@ function HandCard({ card, isSelected, onPress, disabled, w, h }: {
       <Animated.View
         style={[
           {
-            width: w, height: h, borderRadius: 8, overflow: "hidden",
+            width: w, height: h, borderRadius: 10, overflow: "hidden",
             borderWidth: isSelected ? 3 : 0,
             borderColor: isSelected ? "#4ade80" : "transparent",
             opacity: disabled ? 0.4 : 1,
@@ -184,12 +192,12 @@ function HandCard({ card, isSelected, onPress, disabled, w, h }: {
           anim,
         ]}
       >
-        <ImageBackground source={IMG_CARD} className="flex-1 p-1 justify-between" resizeMode="cover">
-          <View className="self-end rounded-md px-1" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-            <Text className="font-black text-white" style={{ fontSize: 9 }}>{card.keepValue}単位</Text>
+        <ImageBackground source={IMG_CARD} className="flex-1 p-1.5 justify-between" resizeMode="cover">
+          <View className="self-end rounded-md px-1.5 py-0.5" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+            <Text className="font-black text-white" style={{ fontSize: 12 }}>{card.keepValue}単位</Text>
           </View>
-          <View className="rounded px-1 py-1" style={{ backgroundColor: CAT_BG[card.category], opacity: 0.92 }}>
-            <Text className="font-extrabold text-white text-center" style={{ fontSize: 9 }} numberOfLines={1}>{card.name}</Text>
+          <View className="rounded-md px-1.5 py-1.5" style={{ backgroundColor: CAT_BG[card.category], opacity: 0.92 }}>
+            <Text className="font-extrabold text-white text-center" style={{ fontSize: 10 }} numberOfLines={1}>{card.name}</Text>
           </View>
         </ImageBackground>
       </Animated.View>
@@ -261,10 +269,12 @@ function CardDetailPopup({ card, visible, onUse, onKeep, onClose }: {
 function CpuGameScreen({ playerName }: { playerName: string }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const cardW = width * 0.19;
+  const cardW = width * 0.24;
   const cardH = cardW * 1.4;
-  const miniW = width * 0.11;
+  const miniW = width * 0.17;
   const miniH = miniW * 1.4;
+  const badgeSize = 110;
+  const turnW = width * 0.48;
 
   const [state, setState] = useState<GameState>(createInitialState);
   const [sel, setSel] = useState<number | null>(null);
@@ -317,63 +327,67 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
   const onPass = useCallback(() => { setState((s) => passTurn(s)); setSel(null); }, []);
 
   return (
-    <ImageBackground source={BG} className="flex-1" resizeMode="cover">
+    <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
       <StatusBar style="light" />
       <BattleFlash visible={flash} />
 
       {/* ─── 相手エリア ─── */}
-      <View className="px-4 pb-2" style={{ paddingTop: insets.top + 4 }}>
-        <View className="flex-row justify-center mb-2" style={{ gap: 4 }}>
+      <View className="px-4 pb-3" style={{ paddingTop: insets.top + 8 }}>
+        {/* 相手の手札（裏面） */}
+        <View className="flex-row justify-center mb-3" style={{ gap: 6 }}>
           {Array.from({ length: state.cpuHand.length || 3 }).map((_, i) => (
             <FaceDownCard key={i} visible={state.cpuHand.length > 0} w={miniW} h={miniH} />
           ))}
         </View>
+        {/* 相手名前 + ターン + 単位数 */}
         <View className="flex-row items-center justify-between">
           <View>
-            <Text className="font-bold mb-1" style={{ fontSize: 13, color: "#F5E6C8" }}>CPU</Text>
-            <View className="items-center justify-center" style={{ width: 108, height: 30 }}>
-              <Image source={IMG_TURN} className="absolute w-full h-full" resizeMode="contain" />
-              <Text className="font-black" style={{ fontSize: 11, color: "#2a1a0a" }}>ターン {state.turn}/10</Text>
-            </View>
+            <Text className="font-bold mb-1" style={{ fontSize: 12, color: "#D4C4A0" }}>
+              {playerName ? "CPU" : "相手の名前"}
+            </Text>
+            <TurnBadge text={`ターン数 ${state.turn}/10`} width={turnW} />
           </View>
           <View className="items-center">
-            <Text style={{ fontSize: 9, color: "#D4C4A0" }}>単位数</Text>
-            <CreditBadge value={cCommit} bonus={cHand} />
+            <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
+            <CreditBadge value={cCommit} bonus={cHand} size={badgeSize} />
           </View>
         </View>
       </View>
 
-      {/* ─── フィールド ─── */}
+      {/* ─── フィールド（中央） ─── */}
       <View className="flex-1 flex-row items-center justify-center" style={{ gap: 28 }}>
         <FieldCard card={drawn} cardW={cardW} cardH={cardH} />
         <DeckPile count={state.deck.length} w={cardW} h={cardH} />
       </View>
 
       {/* ─── 自分エリア ─── */}
-      <View className="flex-row items-center px-3 py-1.5">
+      <View className="flex-row items-center px-4 py-2">
         <View className="items-center">
-          <Text style={{ fontSize: 9, color: "#D4C4A0" }}>単位数</Text>
-          <CreditBadge value={pCommit} bonus={pHand} />
+          <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
+          <CreditBadge value={pCommit} bonus={pHand} size={badgeSize} />
         </View>
         {canAct && state.actionsRemaining > 1 && (
           <View className="ml-2 rounded-lg px-2 py-0.5" style={{ backgroundColor: "rgba(234,179,8,0.3)" }}>
-            <Text className="font-bold" style={{ fontSize: 10, color: "#eab308" }}>残{state.actionsRemaining}回</Text>
+            <Text className="font-bold" style={{ fontSize: 11, color: "#eab308" }}>残{state.actionsRemaining}回</Text>
           </View>
         )}
         <View className="flex-1" />
         {canAct && (
           <Pressable onPress={onPass} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
-            <Image source={IMG_PASS} style={{ width: 86, height: 42 }} resizeMode="contain" />
+            <View className="items-center justify-center" style={{ width: 130, height: 56 }}>
+              <Image source={IMG_PASS} className="absolute w-full h-full" resizeMode="contain" />
+              <Text className="font-black" style={{ fontSize: 18, color: "#2a1a0a" }}>パス</Text>
+            </View>
           </Pressable>
         )}
         {!pt && state.phase !== "ended" && (
-          <Text className="italic" style={{ fontSize: 13, color: "#8B7355" }}>相手のターン...</Text>
+          <Text className="italic" style={{ fontSize: 14, color: "#8B7355" }}>相手のターン...</Text>
         )}
       </View>
 
       {/* ─── 手札 ─── */}
-      <View className="px-1.5 pt-2" style={{ paddingBottom: insets.bottom + 6 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 5, paddingHorizontal: 4 }}>
+      <View className="px-2 pt-2" style={{ paddingBottom: insets.bottom + 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
           {state.playerHand.map((c, i) => (
             <HandCard key={c.uid} card={c} isSelected={sel === i} disabled={!canAct} onPress={() => canAct && setSel(sel === i ? null : i)} w={cardW} h={cardH} />
           ))}
@@ -390,10 +404,12 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
 function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; playerId: string; opponentName: string }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const cardW = width * 0.19;
+  const cardW = width * 0.24;
   const cardH = cardW * 1.4;
-  const miniW = width * 0.11;
+  const miniW = width * 0.17;
   const miniH = miniW * 1.4;
+  const badgeSize = 110;
+  const turnW = width * 0.48;
 
   const { game, isMyTurn, myHand, opponentHandCount, opponentCredits, timeLeft, loading, submitAction } = useOnlineGame(gameId, playerId);
   const [sel, setSel] = useState<number | null>(null);
@@ -415,41 +431,38 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
 
   if (loading || !game) {
     return (
-      <ImageBackground source={BG} className="flex-1 items-center justify-center" resizeMode="cover">
-        <Text style={{ color: "#8B7355", fontSize: 16 }}>読み込み中...</Text>
+      <ImageBackground source={BG} className="flex-1 items-center justify-center" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
+        <Text style={{ color: "#D4C4A0", fontSize: 16 }}>読み込み中...</Text>
       </ImageBackground>
     );
   }
 
   const selected = sel !== null ? myHand[sel] : null;
-  const timerColor = timeLeft > 30 ? "#8B7355" : timeLeft > 10 ? "#d97706" : "#dc2626";
+  const timerColor = timeLeft > 30 ? "#D4C4A0" : timeLeft > 10 ? "#d97706" : "#dc2626";
   const myB = game.player1Id === playerId ? game.player1BonusCredits : game.player2BonusCredits;
   const commit = STARTING_CREDITS + myB;
   const handVal = myHand.reduce((s, c) => s + c.keepValue, 0);
 
   return (
-    <ImageBackground source={BG} className="flex-1" resizeMode="cover">
+    <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
       <StatusBar style="light" />
       <BattleFlash visible={flash} />
 
       {/* 相手 */}
-      <View className="px-4 pb-2" style={{ paddingTop: insets.top + 4 }}>
-        <View className="flex-row justify-center mb-2" style={{ gap: 4 }}>
+      <View className="px-4 pb-3" style={{ paddingTop: insets.top + 8 }}>
+        <View className="flex-row justify-center mb-3" style={{ gap: 6 }}>
           {Array.from({ length: opponentHandCount || 3 }).map((_, i) => (
             <FaceDownCard key={i} visible={opponentHandCount > 0} w={miniW} h={miniH} />
           ))}
         </View>
         <View className="flex-row items-center justify-between">
           <View>
-            <Text className="font-bold mb-1" style={{ fontSize: 13, color: "#F5E6C8" }}>{opponentName}</Text>
-            <View className="items-center justify-center" style={{ width: 108, height: 30 }}>
-              <Image source={IMG_TURN} className="absolute w-full h-full" resizeMode="contain" />
-              <Text className="font-black" style={{ fontSize: 11, color: "#2a1a0a" }}>ターン {game.currentTurn}/10</Text>
-            </View>
+            <Text className="font-bold mb-1" style={{ fontSize: 12, color: "#D4C4A0" }}>{opponentName}</Text>
+            <TurnBadge text={`ターン数 ${game.currentTurn}/10`} width={turnW} />
           </View>
           <View className="items-center">
-            <Text style={{ fontSize: 9, color: "#D4C4A0" }}>単位数</Text>
-            <CreditBadge value={opponentCredits} bonus={0} />
+            <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
+            <CreditBadge value={opponentCredits} bonus={0} size={badgeSize} />
           </View>
         </View>
       </View>
@@ -457,17 +470,17 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
       {/* タイマー */}
       <View className="flex-1 items-center justify-center">
         {isMyTurn ? (
-          <Text className="font-black" style={{ fontSize: 28, color: timerColor }}>{timeLeft}s</Text>
+          <Text className="font-black" style={{ fontSize: 32, color: timerColor }}>{timeLeft}s</Text>
         ) : (
-          <Text className="italic" style={{ fontSize: 15, color: "#8B7355" }}>相手の行動を待っています...</Text>
+          <Text className="italic" style={{ fontSize: 16, color: "#8B7355" }}>相手の行動を待っています...</Text>
         )}
       </View>
 
       {/* 自分 */}
-      <View className="flex-row items-center px-3 py-1.5">
+      <View className="flex-row items-center px-4 py-2">
         <View className="items-center">
-          <Text style={{ fontSize: 9, color: "#D4C4A0" }}>単位数</Text>
-          <CreditBadge value={commit} bonus={handVal} />
+          <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
+          <CreditBadge value={commit} bonus={handVal} size={badgeSize} />
         </View>
         <View className="flex-1" />
         {isMyTurn && (
@@ -475,14 +488,17 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
             onPress={() => { submitAction({ type: "pass" }); setSel(null); }}
             style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] })}
           >
-            <Image source={IMG_PASS} style={{ width: 86, height: 42 }} resizeMode="contain" />
+            <View className="items-center justify-center" style={{ width: 130, height: 56 }}>
+              <Image source={IMG_PASS} className="absolute w-full h-full" resizeMode="contain" />
+              <Text className="font-black" style={{ fontSize: 18, color: "#2a1a0a" }}>パス</Text>
+            </View>
           </Pressable>
         )}
       </View>
 
       {/* 手札 */}
-      <View className="px-1.5 pt-2" style={{ paddingBottom: insets.bottom + 6 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 5, paddingHorizontal: 4 }}>
+      <View className="px-2 pt-2" style={{ paddingBottom: insets.bottom + 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
           {(myHand as Card[]).map((c, i) => (
             <HandCard key={c.uid} card={c} isSelected={sel === i} disabled={!isMyTurn} onPress={() => isMyTurn && setSel(sel === i ? null : i)} w={cardW} h={cardH} />
           ))}

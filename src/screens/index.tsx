@@ -6,70 +6,73 @@ import {
   Modal,
   ScrollView,
   ImageBackground,
+  Image,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import ChalkboardButton from "@/components/ChalkboardButton";
 import { useSound } from "./_layout";
 
 export default function TitleScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const { playClickSound } = useSound();
+
+  const handleStart = async () => {
+    await playClickSound();
+    router.push("/name");
+  };
+
+  const handleHelp = async () => {
+    await playClickSound();
+    setShowHelp(true);
+  };
 
   return (
     <ImageBackground
       source={require("@/assets/images/game/bg-dark.png")}
       className="flex-1"
       resizeMode="cover"
+      style={{ backgroundColor: "#1a1008" }}
     >
       <StatusBar style="light" />
 
-      <View className="flex-1 items-center justify-center px-8">
-        {/* タイトル */}
-        <Text
-          className="text-center font-black mb-1"
-          style={{
-            fontSize: 26,
-            color: "#F5E6C8",
-            textShadowColor: "rgba(0,0,0,0.9)",
-            textShadowOffset: { width: 1, height: 2 },
-            textShadowRadius: 8,
-          }}
+      <View className="flex-1 items-center px-8">
+        {/* タイトルロゴ（中央） */}
+        <View className="flex-1 items-center justify-center">
+          <Image
+            source={require("@/assets/images/game/title-logo.jpg")}
+            style={{
+              width: width * 0.88,
+              height: width * 0.88 * 0.6,
+              borderRadius: 16,
+            }}
+            resizeMode="cover"
+          />
+        </View>
+
+        {/* スタートボタン（start-button.png 画像のみ） */}
+        <Pressable
+          onPress={handleStart}
+          className="mb-16"
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.85 : 1,
+            transform: [{ scale: pressed ? 0.96 : 1 }],
+          })}
         >
-          卒業チキンレース
-        </Text>
-
-        {/* サブタイトル */}
-        <Text
-          className="text-center mb-12"
-          style={{
-            fontSize: 13,
-            color: "#D4C4A0",
-            letterSpacing: 1,
-            textShadowColor: "rgba(0,0,0,0.9)",
-            textShadowOffset: { width: 1, height: 1 },
-            textShadowRadius: 4,
-          }}
-        >
-          ～ 目指せ！省エネ124単位 ～
-        </Text>
-
-        {/* スタートボタン */}
-        <ChalkboardButton
-          label="4年生スタート"
-          onPress={() => router.push("/name")}
-        />
-
-        {/* 補足テキスト */}
-        <Text style={{ marginTop: 24, fontSize: 12, color: "#6b7280" }}>
-          全8ターン / 約2分 / CPU or 通信対戦
-        </Text>
+          <Image
+            source={require("@/assets/images/game/start-button.png")}
+            style={{ width: width * 0.75, height: width * 0.75 * 0.28 }}
+            resizeMode="contain"
+          />
+        </Pressable>
       </View>
 
       {/* ヘルプボタン */}
       <Pressable
-        onPress={() => setShowHelp(true)}
+        onPress={handleHelp}
         className="absolute right-5 w-11 h-11 rounded-full items-center justify-center"
         style={{
           bottom: insets.bottom + 16,
@@ -120,11 +123,8 @@ export default function TitleScreen() {
             </ScrollView>
             <Pressable
               onPress={() => setShowHelp(false)}
-              style={{
-                backgroundColor: "#15803d",
-                borderRadius: 8,
-                paddingVertical: 10,
-              }}
+              className="rounded-lg py-2.5 mt-2"
+              style={{ backgroundColor: "#A08050" }}
             >
               <Text className="text-center font-bold" style={{ color: "#1a1a1a" }}>
                 閉じる
