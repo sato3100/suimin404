@@ -1,111 +1,276 @@
-import { useEffect } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { useEffect, useRef } from "react";
+import { View, Text, Pressable } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
 
+// ─── アバター（丸頭 + アーチ型ボディのシルエット） ──────────────────────────
+function Avatar({ color }: { color: string }) {
+  return (
+    <View style={{ alignItems: "center" }}>
+      <View
+        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: color }}
+      />
+      <View
+        style={{
+          width: 70,
+          height: 42,
+          borderTopLeftRadius: 35,
+          borderTopRightRadius: 35,
+          backgroundColor: color,
+          marginTop: 3,
+        }}
+      />
+    </View>
+  );
+}
+
+// ─── マッチング画面 ─────────────────────────────────────────────────────────
 export default function MatchingScreen() {
-  const { name } = useLocalSearchParams<{ name: string }>();
-  const { state, startMatchmaking, cancel } = useMatchmaking(name ?? "");
+  const { name, mode } = useLocalSearchParams<{ name: string; mode?: string }>();
+  const isCpu = mode === "cpu";
+  const hasNavigated = useRef(false);
+
+  // アニメーション値（横スライドイン + VS登場）
+  const opponentX = useSharedValue(400);
+  const opponentOpacity = useSharedValue(0);
+  const selfX = useSharedValue(-400);
+  const selfOpacity = useSharedValue(0);
+  const vsScale = useSharedValue(0);
+  const vsOpacity = useSharedValue(0);
+  const infoOpacity = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  const lineWidth = useSharedValue(0);
+
+  // CPU対戦：ゲーム画面へ遷移
+  function navigateToGame() {
+    if (hasNavigated.current) return;
+    hasNavigated.current = true;
+    router.replace({ pathname: "/game", params: { mode: "cpu", playerName: name } });
+  }
+
+  // スライドインアニメーション開始
+  useEffect(() => {
+    // 相手: 右からスライドイン
+    opponentX.value = withSpring(0, { damping: 14, stiffness: 90 });
+    opponentOpacity.value = withTiming(1, { duration: 200 });
+
+    // 自分: 左からスライドイン（200ms遅延）
+    selfX.value = withDelay(200, withSpring(0, { damping: 14, stiffness: 90 }));
+    selfOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+
+    // 斜め線: 350ms後にフェードイン
+    lineWidth.value = withDelay(350, withTiming(1, { duration: 200 }));
+
+    // VS: 450ms後にバウンス登場
+    vsOpacity.value = withDelay(450, withTiming(1, { duration: 80 }));
+    vsScale.value = withDelay(
+      450,
+      withSequence(
+        withTiming(1.5, { duration: 80, easing: Easing.out(Easing.cubic) }),
+        withSpring(1, { damping: 5, stiffness: 200 }),
+      ),
+    );
+
+    // 名前タグ: 650ms後にフェードイン
+    infoOpacity.value = withDelay(650, withTiming(1, { duration: 300 }));
+
+    // パルスアニメーション（1.4秒後に開始）
+    setTimeout(() => {
+      pulse.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 800, easing: Easing.inOut(Easing.sin) }),
+          withTiming(1.0, { duration: 800, easing: Easing.inOut(Easing.sin) }),
+        ),
+        -1,
+        false,
+      );
+    }, 1400);
+  }, []);
+
+  // CPU対戦: 2.5秒後に自動遷移
+  useEffect(() => {
+    if (!isCpu) return;
+    const t = setTimeout(navigateToGame, 2500);
+    return () => clearTimeout(t);
+  }, [isCpu]);
+
+  // 通信対戦: マッチメイキング開始
+  const { state, startMatchmaking, cancel } = useMatchmaking(isCpu ? "" : (name ?? ""));
 
   useEffect(() => {
+    if (isCpu) return;
     startMatchmaking();
   }, []);
 
-  // ゲーム準備完了 → ゲーム画面へ
+  // 通信対戦: マッチ成立時にゲーム画面へ遷移
   useEffect(() => {
+    if (isCpu) return;
     if (state.status === "ready" && state.gameId && state.userId && state.lobby) {
-      const opponentName =
+      const oppName =
         state.lobby.player1.userId === state.userId
           ? (state.lobby.player2?.name ?? "相手")
           : state.lobby.player1.name;
-
+      if (hasNavigated.current) return;
+      hasNavigated.current = true;
       router.replace({
         pathname: "/game",
         params: {
           mode: "online",
           gameId: state.gameId,
           playerId: state.userId,
-          opponentName,
+          opponentName: oppName,
         },
       });
     }
   }, [state.status, state.gameId]);
 
-  const opponent =
-    state.lobby?.player2 &&
-    state.lobby.player2.userId !== state.userId
-      ? state.lobby.player2
-      : state.lobby?.player1.userId !== state.userId
-        ? state.lobby?.player1
-        : null;
+  // 相手情報の取得
+  const opponentInfo = isCpu
+    ? { name: "CPU", rating: 1000 }
+    : (() => {
+        if (!state.userId || !state.lobby) return null;
+        const isP1 = state.lobby.player1.userId === state.userId;
+        if (isP1 && state.lobby.player2) return state.lobby.player2;
+        if (!isP1) return state.lobby.player1;
+        return null;
+      })();
 
-  const opponentToShow =
-    state.lobby?.player2 &&
-    state.lobby.player1.userId === state.userId
-      ? state.lobby.player2
-      : state.lobby?.player2?.userId === state.userId
-        ? state.lobby.player1
-        : null;
+  // アニメーションスタイル
+  const opponentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: opponentX.value }],
+    opacity: opponentOpacity.value,
+  }));
+  const selfStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: selfX.value }],
+    opacity: selfOpacity.value,
+  }));
+  const vsStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: vsScale.value * pulse.value }],
+    opacity: vsOpacity.value,
+  }));
+  const infoStyle = useAnimatedStyle(() => ({ opacity: infoOpacity.value }));
+  const lineStyle = useAnimatedStyle(() => ({ opacity: lineWidth.value }));
 
   return (
-    <View className="flex-1 items-center justify-center bg-slate-900 px-6">
+    <View style={{ flex: 1, backgroundColor: "#0f172a" }}>
       <StatusBar style="light" />
 
-      <Text className="mb-2 text-5xl">🎓</Text>
-      <Text className="mb-8 text-2xl font-black text-orange-400">
-        対戦相手を探しています...
-      </Text>
-
-      {/* 自分の情報 */}
-      <View className="mb-6 w-full max-w-xs rounded-2xl bg-slate-800 p-5">
-        <Text className="mb-1 text-xs text-slate-500">あなた</Text>
-        <Text className="text-xl font-bold text-white">🧑‍🎓 {name}</Text>
-        <Text className="mt-1 text-sm text-indigo-400">レート: 1000</Text>
+      {/* 上半分: 相手（右からスライドイン） */}
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "flex-end", paddingRight: 40, paddingTop: 60 }}>
+        <Animated.View style={[{ alignItems: "center" }, opponentStyle]}>
+          <Avatar color="#475569" />
+        </Animated.View>
+        <Animated.View style={[{ marginTop: 12 }, infoStyle]}>
+          <View style={{ backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+              {opponentInfo?.name ?? "検索中..."}
+            </Text>
+            <Text style={{ color: "#fbbf24", fontSize: 12, marginTop: 2 }}>
+              Rate {opponentInfo?.rating ?? "---"}
+            </Text>
+          </View>
+        </Animated.View>
       </View>
 
-      {/* VS 表示 */}
-      {opponentToShow ? (
-        <>
-          <Text className="mb-4 text-2xl font-black text-slate-400">VS</Text>
-          <View className="mb-6 w-full max-w-xs rounded-2xl bg-slate-700 p-5">
-            <Text className="mb-1 text-xs text-slate-500">対戦相手</Text>
-            <Text className="text-xl font-bold text-white">
-              🎓 {opponentToShow.name}
+      {/* 中央: 斜め線 + VS */}
+      <View style={{ height: 80, justifyContent: "center", alignItems: "center" }}>
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              width: "120%",
+              height: 3,
+              backgroundColor: "#dc2626",
+              transform: [{ rotate: "-8deg" }],
+            },
+            lineStyle,
+          ]}
+        />
+        <Animated.View
+          style={[
+            {
+              width: 72,
+              height: 72,
+              borderRadius: 36,
+              backgroundColor: "#dc2626",
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#dc2626",
+              shadowOpacity: 0.6,
+              shadowRadius: 16,
+              elevation: 10,
+              borderWidth: 3,
+              borderColor: "#fca5a5",
+            },
+            vsStyle,
+          ]}
+        >
+          <Text style={{ color: "#fff", fontWeight: "900", fontSize: 22, letterSpacing: 2 }}>
+            VS
+          </Text>
+        </Animated.View>
+      </View>
+
+      {/* 下半分: 自分（左からスライドイン） */}
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "flex-start", paddingLeft: 40, paddingBottom: 20 }}>
+        <Animated.View style={[{ alignItems: "center" }, selfStyle]}>
+          <Avatar color="#3b82f6" />
+        </Animated.View>
+        <Animated.View style={[{ marginTop: 12 }, infoStyle]}>
+          <View style={{ backgroundColor: "#334155", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+              {name ?? "あなた"}
             </Text>
-            <Text className="mt-1 text-sm text-yellow-400">
-              レート: {opponentToShow.rating}
+            <Text style={{ color: "#fbbf24", fontSize: 12, marginTop: 2 }}>
+              Rate 1000
             </Text>
           </View>
-          <View className="mb-6 flex-row items-center gap-2">
-            <ActivityIndicator color="#6366f1" />
-            <Text className="text-slate-400">
-              {state.status === "starting"
-                ? "ゲームを準備中..."
-                : "対戦開始を待っています..."}
-            </Text>
-          </View>
-        </>
-      ) : (
-        <View className="mb-8 flex-row items-center gap-3">
-          <ActivityIndicator size="large" color="#6366f1" />
-          <Text className="text-slate-400">マッチング中...</Text>
-        </View>
-      )}
+        </Animated.View>
+      </View>
 
-      {state.status === "error" && (
-        <Text className="mb-4 text-red-400">{state.errorMessage}</Text>
-      )}
-
-      <Pressable
-        className="mt-4 rounded-full border border-slate-600 px-8 py-3 active:bg-slate-800"
-        onPress={() => {
-          cancel();
-          router.back();
-        }}
-      >
-        <Text className="text-slate-400">キャンセル</Text>
-      </Pressable>
+      {/* ステータス + キャンセル */}
+      <Animated.View style={[{ paddingBottom: 56, alignItems: "center" }, infoStyle]}>
+        <Text style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+          {isCpu
+            ? "CPU対戦を準備中..."
+            : opponentInfo
+              ? "対戦開始を待っています..."
+              : "マッチング中..."}
+        </Text>
+        {!isCpu && (
+          <Pressable
+            style={{
+              borderWidth: 1,
+              borderColor: "#475569",
+              borderRadius: 20,
+              paddingHorizontal: 28,
+              paddingVertical: 10,
+            }}
+            onPress={() => {
+              cancel();
+              router.back();
+            }}
+          >
+            <Text style={{ color: "#64748b", fontSize: 14 }}>キャンセル</Text>
+          </Pressable>
+        )}
+        {!isCpu && state.status === "error" && (
+          <Text style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>
+            {state.errorMessage}
+          </Text>
+        )}
+      </Animated.View>
     </View>
   );
 }

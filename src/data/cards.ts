@@ -92,19 +92,17 @@ export const CARD_DEFS: CardDef[] = [
 export const DECK_COMPOSITION: { cardId: string; count: number }[] = [
   { cardId: "attendance", count: 3 },
   { cardId: "report", count: 3 },
-  { cardId: "pastexam", count: 2 },
-  { cardId: "library", count: 2 },
+  { cardId: "pastexam", count: 3 },
+  { cardId: "library", count: 3 },
   { cardId: "party", count: 3 },
-  { cardId: "gaming", count: 2 },
-  { cardId: "oversleep", count: 2 },
-  { cardId: "nuke", count: 1 },
-  { cardId: "volunteer", count: 2 },
-  { cardId: "allnight", count: 2 },
+  { cardId: "gaming", count: 3 },
+  { cardId: "oversleep", count: 3 },
+  { cardId: "nuke", count: 3 },
 ];
 
 export const STARTING_CREDITS = 94;
 export const GRADUATION_CREDITS = 124;
-export const TOTAL_TURNS = 8;
+export const TOTAL_TURNS = 16; // プレイヤー8ターン + CPU8ターン
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];
