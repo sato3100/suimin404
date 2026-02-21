@@ -84,7 +84,7 @@ export default function TitleScreen() {
         >
           {/* 見た目 */}
           <Image
-            source={require("@/assets/images/game/start-button.png")}
+            source={require("@/assets/images/game/title-start.png")}
             style={{ width: startImgW, height: startImgH }}
             resizeMode="contain"
           />
