@@ -35,15 +35,12 @@ export default function RootLayout() {
   // ─── 各BGMを呼び出す専用関数 ───────────────────────────────────────
   // ※ファイル名はご自身の環境に合わせて変更してください（bgm.mp3 / battle-bgm.mp3）
   const playTitleBgm = async () => playBgm(require("../assets/sounds/title-bgm.mp3"));
-  const playBattleBgm = async () => {};
+  const playBattleBgm = async () => playBgm(require("../assets/sounds/battle-bgm.mp3"));
 
   // ─── アプリ起動時の初期設定 ────────────────────────────────────────
   useEffect(() => {
     // マナーモードでも音を鳴らす（iOS対応）
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    
-    // アプリ起動時はタイトルBGMを鳴らす
-    playTitleBgm();
 
     // アプリ終了時にBGMを解放
     return () => {

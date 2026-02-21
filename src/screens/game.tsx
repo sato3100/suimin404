@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSound } from "./_layout"; // ★ 追加
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -823,6 +824,14 @@ export default function GameScreen() {
     opponentName?: string;
     playerName?: string;
   }>();
+
+  //ContextからバトルBGM再生用の関数をもらう
+  const { playBattleBgm } = useSound();
+
+  //この画面（ゲーム画面）が表示された時にバトルBGMに切り替える
+  useEffect(() => {
+    playBattleBgm();
+  }, []);
 
   if (mode === "online" && gameId && playerId) {
     return (

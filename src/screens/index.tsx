@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react"; // ★ useCallback を追加
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router"; // ★ useFocusEffect を追加
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSound } from "./_layout";
@@ -10,7 +10,14 @@ export default function TitleScreen() {
   const [showHelp, setShowHelp] = useState(false);
 
   // ★ Contextから playClickSound をもらう
-  const { playClickSound } = useSound();
+  const { playClickSound, playTitleBgm } = useSound();
+
+  // ★ 追加: 画面が「フォーカスされた（表示された）」時にタイトルBGMを流す
+  useFocusEffect(
+    useCallback(() => {
+      playTitleBgm();
+    }, [])
+  );
 
   const handleStart = async () => {
     await playClickSound();
