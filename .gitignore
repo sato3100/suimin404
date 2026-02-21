@@ -48,3 +48,6 @@ app-example
 # local env files
 .env
 .env*.local
+
+# claude
+.claude
