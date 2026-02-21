@@ -1,12 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSound } from "./_layout";
 import ChalkboardButton from "@/components/ChalkboardButton";
 
 export default function TitleScreen() {
   const [showHelp, setShowHelp] = useState(false);
+
+  // ★ Contextから playClickSound をもらう
+  const { playClickSound } = useSound();
+
+  const handleStart = async () => {
+    await playClickSound();
+    router.push("/name");
+  };
+
+  const handleOpenHelp = async () => {
+    await playClickSound();
+    setShowHelp(true);
+  };
 
   return (
     <LinearGradient colors={["#FEFCE8", "#FEF08A"]} style={{ flex: 1 }}>
@@ -60,7 +74,7 @@ export default function TitleScreen() {
         {/* スタートボタン */}
         <ChalkboardButton
           label="4年生スタート"
-          onPress={() => router.push("/name")}
+          onPress={handleStart}
         />
 
         {/* 補足テキスト */}
@@ -71,7 +85,7 @@ export default function TitleScreen() {
 
       {/* ヘルプボタン（右下の丸ボタン） */}
       <Pressable
-        onPress={() => setShowHelp(true)}
+        onPress={handleOpenHelp}
         style={{
           position: "absolute",
           bottom: 48,
@@ -132,7 +146,10 @@ export default function TitleScreen() {
               </Text>
             </ScrollView>
             <Pressable
-              onPress={() => setShowHelp(false)}
+              onPress={() => {
+                playClickSound();
+                setShowHelp(false);
+              }}
               style={{
                 backgroundColor: "#15803d",
                 borderRadius: 8,

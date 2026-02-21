@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import ChalkboardButton from "@/components/ChalkboardButton";
+import { useSound } from "./_layout";
 
 type Mode = "cpu" | "online";
 
@@ -19,10 +20,11 @@ export default function NameScreen() {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [mode, setMode] = useState<Mode>("cpu");
+  const { playClickSound } = useSound();
 
   const isValid = name.trim().length > 0;
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!isValid) return;
     router.push({
       pathname: "/matching",
@@ -36,7 +38,10 @@ export default function NameScreen() {
 
       {/* 戻るボタン（左上に固定表示） */}
       <Pressable
-        onPress={() => router.back()}
+        onPress={async () => {
+          await playClickSound();
+          router.back();
+        }}
         hitSlop={12}
         style={{
           position: "absolute",
