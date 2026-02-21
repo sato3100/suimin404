@@ -1,11 +1,22 @@
+// ─── カード使用効果の定義 ────────────────────────────────────────────────────
+export interface UseEffect {
+  selfBonus?: number;
+  opponentBonus?: number;
+  skipNextDraw?: boolean;
+  drawCards?: number;
+  extraActions?: number;
+  discardSelf?: number;
+  discardOpponent?: number;
+  gamble?: { win: number; lose: number };
+}
+
 export interface CardDef {
   id: string;
   name: string;
-  emoji: string;
   keepValue: number;
-  effectType: "boost" | "attack" | "special" | "gamble";
-  effectValue: number;
+  useEffect: UseEffect;
   description: string;
+  category: "stable" | "minus" | "chaos";
 }
 
 export interface Card extends CardDef {
@@ -13,96 +24,124 @@ export interface Card extends CardDef {
 }
 
 export const CARD_DEFS: CardDef[] = [
-  // 単位UP系（カードを作成するまで仮実装）
+  // ─── 安定系 ────────────────────────────────────────────────────────────────
   {
-    id: "attendance",
-    name: "真面目に出席",
-    emoji: "📚",
-    keepValue: 9,
-    effectType: "boost",
-    effectValue: 11,
-    description: "コツコツ出席して単位GET",
+    id: "clone_thesis",
+    name: "卒論複製",
+    keepValue: 12,
+    useEffect: { selfBonus: 24, skipNextDraw: true },
+    description: "cloneした卒論を再度提出し、24単位を得る。次のターンはドローしない。",
+    category: "stable",
   },
   {
-    id: "report",
-    name: "レポート提出",
-    emoji: "📝",
+    id: "dogeza",
+    name: "教授に土下座",
     keepValue: 8,
-    effectType: "boost",
-    effectValue: 10,
-    description: "頑張って書いたレポート",
+    useEffect: { selfBonus: 16, drawCards: 1 },
+    description: "教授に涙の謝罪を決め、16単位を得る。1枚ドローする。",
+    category: "stable",
   },
   {
-    id: "pastexam",
-    name: "過去問入手",
-    emoji: "📋",
+    id: "ghostwriter",
+    name: "ゴーストライター",
     keepValue: 10,
-    effectType: "boost",
-    effectValue: 12,
-    description: "先輩からの贈り物",
+    useEffect: { selfBonus: 16 },
+    description: "レポートを文豪が量産し、16単位を得る。",
+    category: "stable",
   },
   {
-    id: "library",
-    name: "図書館で自習",
-    emoji: "📖",
+    id: "native_helper",
+    name: "助っ人ネイティブ",
     keepValue: 7,
-    effectType: "boost",
-    effectValue: 9,
-    description: "静かな環境で集中",
-  },
-  // 妨害系（カードを作成するまで仮実装）
-  {
-    id: "party",
-    name: "飲み会に誘う",
-    emoji: "🍺",
-    keepValue: 7,
-    effectType: "attack",
-    effectValue: -8,
-    description: "今日は飲みに行こうぜ！",
+    useEffect: { selfBonus: 10 },
+    description: "外国語授業にネイティブを召喚し、10単位を得る。",
+    category: "stable",
   },
   {
-    id: "gaming",
-    name: "ゲーム貸す",
-    emoji: "🎮",
-    keepValue: 8,
-    effectType: "attack",
-    effectValue: -9,
-    description: "このゲーム超面白いよ",
+    id: "sit_in",
+    name: "座り込み出席",
+    keepValue: 6,
+    useEffect: { selfBonus: 8, extraActions: 1 },
+    description: "前日から教室で待機し、8単位を得る。このターンの行動回数+1。",
+    category: "stable",
   },
+
+  // ─── マイナス系 ────────────────────────────────────────────────────────────
   {
     id: "oversleep",
-    name: "夜更かしさせる",
-    emoji: "💤",
-    keepValue: 5,
-    effectType: "attack",
-    effectValue: -10,
-    description: "あと1話だけ見ようよ...",
+    name: "爆睡",
+    keepValue: 8,
+    useEffect: { selfBonus: 0, extraActions: 1 },
+    description: "数多くの授業を寝過ごし、0単位を得る。このターンの行動回数+1。",
+    category: "minus",
   },
   {
-    id: "nuke",
-    name: "落単砲",
-    emoji: "💀",
-    keepValue: 3,
-    effectType: "attack",
-    effectValue: -12,
-    description: "最強の妨害カード",
+    id: "planned_nap",
+    name: "計画的昼寝",
+    keepValue: 10,
+    useEffect: { selfBonus: 5, drawCards: 1 },
+    description: "午後の授業をサボり、5単位を得る。1枚ドローする。",
+    category: "minus",
+  },
+  {
+    id: "flame",
+    name: "大炎上",
+    keepValue: 5,
+    useEffect: { selfBonus: -10 },
+    description: "SNSで悪評が知れ渡り、10単位を失う。",
+    category: "minus",
+  },
+
+  // ─── 混沌系 ────────────────────────────────────────────────────────────────
+  {
+    id: "gacha",
+    name: "卒業演習ガチャ",
+    keepValue: 6,
+    useEffect: { gamble: { win: 20, lose: -15 } },
+    description: "配属先をランダムに決める。50%で+20単位、50%で-15単位。",
+    category: "chaos",
+  },
+  {
+    id: "all_nighter",
+    name: "2徹",
+    keepValue: 10,
+    useEffect: { extraActions: 2, skipNextDraw: true },
+    description: "命がけで課題をこなし、行動回数+2。次のターン、ドローしない。",
+    category: "chaos",
+  },
+  {
+    id: "drop_course",
+    name: "履修中止",
+    keepValue: 2,
+    useEffect: { selfBonus: 0, discardSelf: 1, discardOpponent: 1 },
+    description: "履中し、0単位を得る。手札1枚を除外し、相手のカードを1枚捨てる。",
+    category: "chaos",
+  },
+  {
+    id: "grade_hack",
+    name: "成績改ざん",
+    keepValue: 10,
+    useEffect: { opponentBonus: -10 },
+    description: "成績通知書の原本を書き換え、相手の単位を10減らす。",
+    category: "chaos",
+  },
+  {
+    id: "nightlife",
+    name: "夜遊びの誘い",
+    keepValue: 4,
+    useEffect: { selfBonus: -6, opponentBonus: -16, drawCards: 1 },
+    description: "深夜の麻雀で相手を陥れ、自分-6単位、相手-16単位。1枚ドロー。",
+    category: "chaos",
   },
 ];
 
-export const DECK_COMPOSITION: { cardId: string; count: number }[] = [
-  { cardId: "attendance", count: 3 },
-  { cardId: "report", count: 3 },
-  { cardId: "pastexam", count: 3 },
-  { cardId: "library", count: 3 },
-  { cardId: "party", count: 3 },
-  { cardId: "gaming", count: 3 },
-  { cardId: "oversleep", count: 3 },
-  { cardId: "nuke", count: 3 },
-];
+// デッキ構成：各カード2枚 = 26枚
+export const DECK_COMPOSITION: { cardId: string; count: number }[] =
+  CARD_DEFS.map((d) => ({ cardId: d.id, count: 2 }));
 
-export const STARTING_CREDITS = 94;
+export const STARTING_CREDITS = 24;
 export const GRADUATION_CREDITS = 124;
-export const TOTAL_TURNS = 16; // プレイヤー8ターン + CPU8ターン
+export const TOTAL_TURNS = 10;
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];

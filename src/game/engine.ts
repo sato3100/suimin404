@@ -17,8 +17,9 @@ export interface GameState {
   cpuHand: Card[];
   playerBonusCredits: number;
   cpuBonusCredits: number;
-  playerUsedVolunteer: boolean;
-  cpuUsedVolunteer: boolean;
+  playerSkipDraw: boolean;
+  cpuSkipDraw: boolean;
+  actionsRemaining: number;
   log: string[];
 }
 
@@ -28,7 +29,6 @@ export interface GameResult {
   playerGraduated: boolean;
   cpuGraduated: boolean;
   playerWon: boolean;
-  playerUsedVolunteer: boolean;
   ending: string;
   endingTitle: string;
 }
@@ -36,14 +36,12 @@ export interface GameResult {
 // ─── 定数 ───────────────────────────────────────────────────────────────────
 export const INITIAL_HAND_SIZE = 3;
 
-// ─── ターン判定 ─────────────────────────────────────────────────────────────
-/** 奇数ターン = プレイヤー、偶数ターン = CPU */
+// ─── ターン判定（奇数=プレイヤー、偶数=CPU） ────────────────────────────────
 export function isPlayerTurn(turn: number): boolean {
   return turn % 2 === 1;
 }
 
 // ─── ゲーム初期化 ───────────────────────────────────────────────────────────
-/** デッキを生成し、各プレイヤーに初期手札3枚を配る */
 export function createInitialState(): GameState {
   const deck = createDeck();
   const playerHand = deck.splice(-INITIAL_HAND_SIZE);
@@ -57,20 +55,37 @@ export function createInitialState(): GameState {
     cpuHand,
     playerBonusCredits: 0,
     cpuBonusCredits: 0,
-    playerUsedVolunteer: false,
-    cpuUsedVolunteer: false,
+    playerSkipDraw: false,
+    cpuSkipDraw: false,
+    actionsRemaining: 1,
     log: [],
   };
 }
 
 // ─── カードドロー ───────────────────────────────────────────────────────────
-/** デッキから1枚引いて手札に加える */
 export function drawCard(state: GameState): GameState {
-  if (state.phase !== "draw" || state.deck.length === 0) return state;
+  if (state.phase !== "draw") return state;
+
+  const player = isPlayerTurn(state.turn);
+  const skipDraw = player ? state.playerSkipDraw : state.cpuSkipDraw;
+
+  if (skipDraw) {
+    return {
+      ...state,
+      phase: "action",
+      actionsRemaining: 1,
+      playerSkipDraw: player ? false : state.playerSkipDraw,
+      cpuSkipDraw: player ? state.cpuSkipDraw : false,
+      log: [...state.log, player ? "⏭️ ドロースキップ" : "🤖 相手のドロースキップ"],
+    };
+  }
+
+  if (state.deck.length === 0) {
+    return { ...state, phase: "action", actionsRemaining: 1 };
+  }
 
   const newDeck = [...state.deck];
   const card = newDeck.pop()!;
-  const player = isPlayerTurn(state.turn);
 
   return {
     ...state,
@@ -78,17 +93,30 @@ export function drawCard(state: GameState): GameState {
     playerHand: player ? [...state.playerHand, card] : state.playerHand,
     cpuHand: player ? state.cpuHand : [...state.cpuHand, card],
     phase: "action",
-    log: [
-      ...state.log,
-      player
-        ? `📥 カードを引いた: ${card.emoji} ${card.name}`
-        : "🤖 相手がカードを引いた",
-    ],
+    actionsRemaining: 1,
+    log: [...state.log, player ? `📥 カードを引いた: ${card.name}` : "🤖 相手がカードを引いた"],
   };
 }
 
+// ─── 追加ドロー ─────────────────────────────────────────────────────────────
+function drawExtra(state: GameState, count: number, forPlayer: boolean): GameState {
+  let s = { ...state };
+  for (let i = 0; i < count; i++) {
+    if (s.deck.length === 0) break;
+    const newDeck = [...s.deck];
+    const card = newDeck.pop()!;
+    s = {
+      ...s,
+      deck: newDeck,
+      playerHand: forPlayer ? [...s.playerHand, card] : s.playerHand,
+      cpuHand: forPlayer ? s.cpuHand : [...s.cpuHand, card],
+      log: [...s.log, forPlayer ? `📥 追加ドロー: ${card.name}` : "🤖 相手が追加ドロー"],
+    };
+  }
+  return s;
+}
+
 // ─── カード使用 ─────────────────────────────────────────────────────────────
-/** 手札のカードを使用して効果を適用する */
 export function useCard(state: GameState, cardIndex: number): GameState {
   if (state.phase !== "action") return state;
 
@@ -101,89 +129,96 @@ export function useCard(state: GameState, cardIndex: number): GameState {
 
   let playerBonus = state.playerBonusCredits;
   let cpuBonus = state.cpuBonusCredits;
-  let playerVol = state.playerUsedVolunteer;
-  let cpuVol = state.cpuUsedVolunteer;
-  let logMsg = "";
+  let playerSkip = state.playerSkipDraw;
+  let cpuSkip = state.cpuSkipDraw;
+  let actionsRemaining = state.actionsRemaining - 1;
+  let logMsg = `⚡ ${card.name}を使用！`;
 
-  switch (card.effectType) {
-    case "boost":
-      if (player) {
-        playerBonus += card.effectValue;
-        logMsg = `📚 ${card.name}を使用！自分 +${card.effectValue}単位`;
-      } else {
-        cpuBonus += card.effectValue;
-        logMsg = `🤖 相手が${card.name}を使用！相手 +${card.effectValue}単位`;
-      }
-      break;
+  const eff = card.useEffect;
 
-    case "attack":
-      if (player) {
-        cpuBonus += card.effectValue;
-        logMsg = `⚔️ ${card.name}を使用！相手 ${card.effectValue}単位`;
-      } else {
-        playerBonus += card.effectValue;
-        logMsg = `🤖 相手が${card.name}を発動！あなた ${card.effectValue}単位`;
-      }
-      break;
-
-    case "special":
-      if (player) {
-        playerBonus += card.effectValue;
-        playerVol = true;
-        logMsg = `🤝 ${card.name}参加！自分 +${card.effectValue}単位`;
-      } else {
-        cpuBonus += card.effectValue;
-        cpuVol = true;
-        logMsg = `🤖 相手が${card.name}に参加！`;
-      }
-      break;
-
-    case "gamble": {
-      const won = Math.random() >= 0.5;
-      const change = won ? card.effectValue : -card.effectValue;
-      if (player) {
-        playerBonus += change;
-        logMsg = won
-          ? `🎰 徹夜で勉強成功！+${card.effectValue}単位`
-          : `🎰 遊んでしまった... -${card.effectValue}単位`;
-      } else {
-        cpuBonus += change;
-        logMsg = won
-          ? `🤖 相手の徹夜勉強が成功！`
-          : `🤖 相手の徹夜が裏目に！`;
-      }
-      break;
-    }
+  if (eff.selfBonus !== undefined && eff.selfBonus !== 0) {
+    if (player) playerBonus += eff.selfBonus;
+    else cpuBonus += eff.selfBonus;
+    logMsg += eff.selfBonus > 0 ? ` +${eff.selfBonus}単位` : ` ${eff.selfBonus}単位`;
   }
 
-  return advanceTurn({
+  if (eff.opponentBonus !== undefined && eff.opponentBonus !== 0) {
+    if (player) cpuBonus += eff.opponentBonus;
+    else playerBonus += eff.opponentBonus;
+    logMsg += ` 相手${eff.opponentBonus}単位`;
+  }
+
+  if (eff.skipNextDraw) {
+    if (player) playerSkip = true;
+    else cpuSkip = true;
+  }
+
+  if (eff.extraActions) {
+    actionsRemaining += eff.extraActions;
+  }
+
+  if (eff.gamble) {
+    const won = Math.random() >= 0.5;
+    const change = won ? eff.gamble.win : eff.gamble.lose;
+    if (player) playerBonus += change;
+    else cpuBonus += change;
+    logMsg += won ? ` 成功！+${eff.gamble.win}単位` : ` 失敗... ${eff.gamble.lose}単位`;
+  }
+
+  let newState: GameState = {
     ...state,
     playerHand: player ? hand : state.playerHand,
     cpuHand: player ? state.cpuHand : hand,
     playerBonusCredits: playerBonus,
     cpuBonusCredits: cpuBonus,
-    playerUsedVolunteer: playerVol,
-    cpuUsedVolunteer: cpuVol,
+    playerSkipDraw: playerSkip,
+    cpuSkipDraw: cpuSkip,
+    actionsRemaining,
     log: [...state.log, logMsg],
-  });
+  };
+
+  if (eff.discardOpponent && eff.discardOpponent > 0) {
+    const oppHand = player ? [...newState.cpuHand] : [...newState.playerHand];
+    for (let i = 0; i < eff.discardOpponent && oppHand.length > 0; i++) {
+      const idx = Math.floor(Math.random() * oppHand.length);
+      const removed = oppHand.splice(idx, 1)[0];
+      newState = { ...newState, log: [...newState.log, `🗑️ 相手の${removed.name}を除外！`] };
+    }
+    newState = player ? { ...newState, cpuHand: oppHand } : { ...newState, playerHand: oppHand };
+  }
+
+  if (eff.discardSelf && eff.discardSelf > 0) {
+    const selfHand = player ? [...newState.playerHand] : [...newState.cpuHand];
+    for (let i = 0; i < eff.discardSelf && selfHand.length > 0; i++) {
+      const idx = Math.floor(Math.random() * selfHand.length);
+      const removed = selfHand.splice(idx, 1)[0];
+      newState = { ...newState, log: [...newState.log, `🗑️ 自分の${removed.name}を除外`] };
+    }
+    newState = player ? { ...newState, playerHand: selfHand } : { ...newState, cpuHand: selfHand };
+  }
+
+  if (eff.drawCards && eff.drawCards > 0) {
+    newState = drawExtra(newState, eff.drawCards, player);
+  }
+
+  if (newState.actionsRemaining <= 0) {
+    return advanceTurn(newState);
+  }
+  return newState;
 }
 
 // ─── パス ───────────────────────────────────────────────────────────────────
-/** 行動せずにターンを終了する */
 export function passTurn(state: GameState): GameState {
   if (state.phase !== "action") return state;
-
   const player = isPlayerTurn(state.turn);
   return advanceTurn({
     ...state,
-    log: [
-      ...state.log,
-      player ? "⏭️ パスした" : "🤖 相手がパスした",
-    ],
+    actionsRemaining: 0,
+    log: [...state.log, player ? "⏭️ パスした" : "🤖 相手がパスした"],
   });
 }
 
-// ─── ターン進行（内部関数） ─────────────────────────────────────────────────
+// ─── ターン進行 ─────────────────────────────────────────────────────────────
 function advanceTurn(state: GameState): GameState {
   if (state.turn >= TOTAL_TURNS) {
     return { ...state, phase: "ended" };
@@ -192,48 +227,35 @@ function advanceTurn(state: GameState): GameState {
 }
 
 // ─── 単位計算 ───────────────────────────────────────────────────────────────
-/** プレイヤーの合計単位数 = 初期単位 + 手札キープ値 + ボーナス */
 export function getPlayerCredits(state: GameState): number {
-  const handValue = state.playerHand.reduce((s, c) => s + c.keepValue, 0);
-  return STARTING_CREDITS + handValue + state.playerBonusCredits;
+  return STARTING_CREDITS + state.playerHand.reduce((s, c) => s + c.keepValue, 0) + state.playerBonusCredits;
 }
 
-/** CPUの合計単位数 */
 export function getCpuCredits(state: GameState): number {
-  const handValue = state.cpuHand.reduce((s, c) => s + c.keepValue, 0);
-  return STARTING_CREDITS + handValue + state.cpuBonusCredits;
+  return STARTING_CREDITS + state.cpuHand.reduce((s, c) => s + c.keepValue, 0) + state.cpuBonusCredits;
 }
 
-// ─── 結果判定 ───────────────────────────────────────────────────────────────
-/** ゲーム終了時の勝敗・エンディングを判定する */
+// ─── 結果判定（仕様書準拠） ─────────────────────────────────────────────────
 export function determineResult(state: GameState): GameResult {
   const playerCredits = getPlayerCredits(state);
   const cpuCredits = getCpuCredits(state);
-
   const playerGrad = playerCredits >= GRADUATION_CREDITS;
   const cpuGrad = cpuCredits >= GRADUATION_CREDITS;
 
-  // 勝敗判定: 卒業者が勝ち、同条件なら124に近い方が勝ち
   let playerWon: boolean;
-  if (playerGrad && !cpuGrad) {
-    playerWon = true;
-  } else if (!playerGrad && cpuGrad) {
-    playerWon = false;
-  } else {
+  if (playerGrad && !cpuGrad) playerWon = true;
+  else if (!playerGrad && cpuGrad) playerWon = false;
+  else {
     const pDiff = Math.abs(playerCredits - GRADUATION_CREDITS);
     const cDiff = Math.abs(cpuCredits - GRADUATION_CREDITS);
     playerWon = pDiff <= cDiff;
   }
 
-  // エンディング分岐
   let ending: string;
   let endingTitle: string;
   if (playerCredits === GRADUATION_CREDITS) {
     ending = "perfect";
     endingTitle = "伝説の省エネ卒業";
-  } else if (playerGrad && state.playerUsedVolunteer) {
-    ending = "employed";
-    endingTitle = "超優良企業へ就職";
   } else if (playerCredits >= 131) {
     ending = "nerd";
     endingTitle = "ガリ勉・友達ゼロ";
@@ -248,14 +270,5 @@ export function determineResult(state: GameState): GameResult {
     endingTitle = "中退・家出";
   }
 
-  return {
-    playerCredits,
-    cpuCredits,
-    playerGraduated: playerGrad,
-    cpuGraduated: cpuGrad,
-    playerWon,
-    playerUsedVolunteer: state.playerUsedVolunteer,
-    ending,
-    endingTitle,
-  };
+  return { playerCredits, cpuCredits, playerGraduated: playerGrad, cpuGraduated: cpuGrad, playerWon, ending, endingTitle };
 }

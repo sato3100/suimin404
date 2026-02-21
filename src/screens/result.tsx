@@ -240,37 +240,63 @@ function LineScreen({
   endingTitle: string;
 }) {
   const insets = useSafeAreaInsets();
-  const [visibleCount, setVisibleCount] = useState(0);
+  // 表示済みメッセージ（確定分）
+  const [shownMessages, setShownMessages] = useState<ChatMessage[]>([]);
   const [allShown, setAllShown] = useState(false);
+  // 次に表示するメッセージのインデックス
+  const nextIdx = useRef(0);
+  // 自動送信タイマー用
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inputText, setInputText] = useState("");
-  const [sentMessages, setSentMessages] = useState<string[]>([]);
+  // playerメッセージ待ち状態
+  const [waitingForSend, setWaitingForSend] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  // メッセージを1通ずつ段階表示
+  // 次のメッセージを処理する関数
+  const processNext = () => {
+    const idx = nextIdx.current;
+    if (idx >= messages.length) {
+      setAllShown(true);
+      return;
+    }
+    const msg = messages[idx];
+    if (msg.sender === "player" && !msg.isRead) {
+      // playerメッセージ: テンプレートを入力欄にセットして待つ
+      setInputText(msg.text);
+      setWaitingForSend(true);
+    } else {
+      // momメッセージ / 既読マーク: 自動表示
+      setShownMessages((prev) => [...prev, msg]);
+      nextIdx.current = idx + 1;
+      // 次のメッセージへ（800ms後）
+      timerRef.current = setTimeout(processNext, 800);
+    }
+  };
+
+  // 初回開始
   useEffect(() => {
-    let i = 0;
-    const timer = setInterval(() => {
-      i++;
-      setVisibleCount(i);
-      if (i >= messages.length) {
-        clearInterval(timer);
-        setAllShown(true);
-      }
-    }, 800);
-    return () => clearInterval(timer);
+    timerRef.current = setTimeout(processNext, 600);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, []);
 
-  // メッセージ追加時に自動スクロール
+  // スクロール
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
-  }, [visibleCount, sentMessages.length]);
+  }, [shownMessages.length]);
 
-  // ユーザーメッセージ送信
+  // ユーザー送信
   const handleSend = () => {
     const txt = inputText.trim();
     if (!txt) return;
-    setSentMessages((prev) => [...prev, txt]);
+    // 送信したメッセージをチャットに追加
+    setShownMessages((prev) => [...prev, { sender: "player", text: txt }]);
     setInputText("");
+    setWaitingForSend(false);
+    nextIdx.current = nextIdx.current + 1;
+    // 次のメッセージへ
+    timerRef.current = setTimeout(processNext, 800);
   };
 
   return (
@@ -353,38 +379,9 @@ function LineScreen({
           </View>
         </View>
 
-        {/* 定型メッセージ */}
-        {messages.slice(0, visibleCount).map((msg, i) => (
+        {/* メッセージ一覧 */}
+        {shownMessages.map((msg, i) => (
           <Bubble key={i} msg={msg} visible />
-        ))}
-
-        {/* ユーザーが追加送信したメッセージ */}
-        {sentMessages.map((txt, i) => (
-          <View
-            key={`sent-${i}`}
-            style={{
-              marginBottom: 6,
-              flexDirection: "row",
-              alignItems: "flex-end",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Timestamp align="right" />
-            <View
-              style={{
-                maxWidth: "68%",
-                borderRadius: 16,
-                borderBottomRightRadius: 2,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                backgroundColor: LINE.sentBubble,
-              }}
-            >
-              <Text style={{ fontSize: 14, color: LINE.sentText, lineHeight: 20 }}>
-                {txt}
-              </Text>
-            </View>
-          </View>
         ))}
 
         {/* エンディングタイトル表示 */}
@@ -442,12 +439,13 @@ function LineScreen({
               color: "#111",
               maxHeight: 80,
             }}
-            placeholder="メッセージを入力"
+            placeholder={waitingForSend ? "送信ボタンを押してね" : "メッセージを入力"}
             placeholderTextColor="#999"
             value={inputText}
             onChangeText={setInputText}
             returnKeyType="send"
             onSubmitEditing={handleSend}
+            editable={waitingForSend}
             multiline
           />
 
@@ -506,10 +504,10 @@ function OnlineResultScreen() {
     );
   }
 
-  const myCredits = result?.myCredits ?? cpuResult?.playerCredits ?? 94;
+  const myCredits = result?.myCredits ?? cpuResult?.playerCredits ?? 24;
   const won = result?.won;
 
-  // 単位数に応じたエンディング判定
+  // 単位数に応じたエンディング判定（仕様書準拠）
   let ending: string;
   let endingTitle: string;
   if (myCredits === 124) {

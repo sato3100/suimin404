@@ -73,9 +73,9 @@ function ResultContent({
   opponentGraduated: boolean;
   resultPath: string;
 }) {
-  // 3秒後にLINE報告画面へ自動遷移
+  // 8秒後にLINE報告画面へ自動遷移
   useEffect(() => {
-    const t = setTimeout(() => router.replace(resultPath as any), 3000);
+    const t = setTimeout(() => router.replace(resultPath as any), 8000);
     return () => clearTimeout(t);
   }, []);
 

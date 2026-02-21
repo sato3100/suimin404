@@ -1,151 +1,153 @@
 import { useState } from "react";
-import { View, Text, Pressable, Modal, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  Modal,
+  ScrollView,
+  ImageBackground,
+  Image,
+  useWindowDimensions,
+} from "react-native";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { LinearGradient } from "expo-linear-gradient";
-import ChalkboardButton from "@/components/ChalkboardButton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TitleScreen() {
   const [showHelp, setShowHelp] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const btnW = width * 0.5;
 
   return (
-    <LinearGradient colors={["#FEFCE8", "#FEF08A"]} style={{ flex: 1 }}>
-      <StatusBar style="dark" />
+    <ImageBackground
+      source={require("@/assets/images/game/bg-dark.png")}
+      className="flex-1"
+      resizeMode="cover"
+    >
+      <StatusBar style="light" />
 
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingHorizontal: 24,
-        }}
-      >
-        {/* サブタイトル */}
-        <Text
-          style={{
-            fontSize: 14,
-            color: "#374151",
-            marginBottom: 4,
-            letterSpacing: 2,
-          }}
-        >
-          ～目指せ！省エネ124単位～
-        </Text>
-
+      <View className="flex-1 items-center justify-center px-8">
         {/* タイトル */}
         <Text
+          className="text-center font-black mb-1"
           style={{
-            fontSize: 42,
-            fontWeight: "900",
-            color: "#111827",
-            marginBottom: 2,
-            textAlign: "center",
-            lineHeight: 52,
+            fontSize: 26,
+            color: "#F5E6C8",
+            textShadowColor: "rgba(0,0,0,0.9)",
+            textShadowOffset: { width: 1, height: 2 },
+            textShadowRadius: 8,
           }}
         >
-          卒業
+          卒業チキンレース
         </Text>
+
+        {/* サブタイトル */}
         <Text
+          className="text-center mb-12"
           style={{
-            fontSize: 28,
-            fontWeight: "900",
-            color: "#111827",
-            marginBottom: 40,
-            textAlign: "center",
+            fontSize: 13,
+            color: "#D4C4A0",
+            letterSpacing: 1,
+            textShadowColor: "rgba(0,0,0,0.9)",
+            textShadowOffset: { width: 1, height: 1 },
+            textShadowRadius: 4,
           }}
         >
-          チキンレース
+          ～ 目指せ！省エネ124単位 ～
         </Text>
 
         {/* スタートボタン */}
-        <ChalkboardButton
-          label="4年生スタート"
+        <Pressable
           onPress={() => router.push("/name")}
-        />
-
-        {/* 補足テキスト */}
-        <Text style={{ marginTop: 24, fontSize: 12, color: "#6b7280" }}>
-          全8ターン / 約2分 / CPU or 通信対戦
-        </Text>
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.85 : 1,
+            transform: [{ scale: pressed ? 0.96 : 1 }],
+          })}
+        >
+          <View
+            className="items-center justify-center"
+            style={{ width: btnW, height: btnW * 0.42 }}
+          >
+            <Image
+              source={require("@/assets/images/game/turn-badge.png")}
+              className="absolute"
+              style={{ width: btnW, height: btnW * 0.42 }}
+              resizeMode="contain"
+            />
+            <Text
+              className="font-black"
+              style={{ fontSize: 20, color: "#2a1a0a", letterSpacing: 3 }}
+            >
+              スタート
+            </Text>
+          </View>
+        </Pressable>
       </View>
 
-      {/* ヘルプボタン（右下の丸ボタン） */}
+      {/* ヘルプボタン */}
       <Pressable
         onPress={() => setShowHelp(true)}
+        className="absolute right-5 w-11 h-11 rounded-full items-center justify-center"
         style={{
-          position: "absolute",
-          bottom: 48,
-          right: 24,
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: "#15803d",
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.15,
-          shadowRadius: 6,
-          elevation: 4,
+          bottom: insets.bottom + 16,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          borderWidth: 1,
+          borderColor: "#A08050",
         }}
       >
-        <Text style={{ color: "#fff", fontSize: 20, fontWeight: "900" }}>?</Text>
+        <Text style={{ color: "#F5E6C8", fontSize: 20 }} className="font-black">
+          ?
+        </Text>
       </Pressable>
 
-      {/* ルール説明モーダル */}
+      {/* ルールモーダル */}
       <Modal visible={showHelp} transparent animationType="fade">
         <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            justifyContent: "center",
-            padding: 24,
-          }}
+          className="flex-1 justify-center p-6"
+          style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
           onPress={() => setShowHelp(false)}
         >
           <Pressable
-            style={{ backgroundColor: "#fff", borderRadius: 16, padding: 24 }}
+            className="rounded-2xl p-6"
+            style={{ backgroundColor: "#2A1F14", borderWidth: 2, borderColor: "#A08050" }}
             onPress={(e) => e.stopPropagation()}
           >
             <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "900",
-                color: "#111827",
-                marginBottom: 16,
-                textAlign: "center",
-              }}
+              className="text-center font-black mb-4"
+              style={{ fontSize: 18, color: "#F5E6C8" }}
             >
               ゲームのルール
             </Text>
             <ScrollView>
-              <Text style={{ fontSize: 14, color: "#374151", lineHeight: 22, marginBottom: 8 }}>
-                📚 カードをキープ → 単位として加算
-              </Text>
-              <Text style={{ fontSize: 14, color: "#374151", lineHeight: 22, marginBottom: 8 }}>
-                ⚔️ カードを使用 → 相手を妨害 or 自分UP
-              </Text>
-              <Text style={{ fontSize: 14, color: "#374151", lineHeight: 22, marginBottom: 8 }}>
-                🎯 124単位ピッタリで伝説の省エネ卒業！
-              </Text>
-              <Text style={{ fontSize: 14, color: "#374151", lineHeight: 22, marginBottom: 16 }}>
-                💡 初期単位94 + カードで積み上げよう
-              </Text>
+              {[
+                "カードをキープ → 単位として加算",
+                "カードを使用 → 効果を発動",
+                "124単位ピッタリで伝説の省エネ卒業！",
+                "初期24単位 + カードで100単位集めよう",
+                "全10ターン / CPU or 通信対戦",
+              ].map((t, i) => (
+                <Text
+                  key={i}
+                  className="mb-2"
+                  style={{ fontSize: 14, color: "#D4C4A0", lineHeight: 22 }}
+                >
+                  {t}
+                </Text>
+              ))}
             </ScrollView>
             <Pressable
               onPress={() => setShowHelp(false)}
-              style={{
-                backgroundColor: "#15803d",
-                borderRadius: 8,
-                paddingVertical: 10,
-              }}
+              className="rounded-lg py-2.5 mt-2"
+              style={{ backgroundColor: "#A08050" }}
             >
-              <Text style={{ color: "#fff", textAlign: "center", fontWeight: "700" }}>
+              <Text className="text-center font-bold" style={{ color: "#1a1a1a" }}>
                 閉じる
               </Text>
             </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
