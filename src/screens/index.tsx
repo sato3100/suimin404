@@ -6,18 +6,16 @@ import {
   Modal,
   ScrollView,
   ImageBackground,
-  Image,
-  useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ChalkboardButton from "@/components/ChalkboardButton";
+import { useSound } from "./_layout";
 
 export default function TitleScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const btnW = width * 0.5;
 
   return (
     <ImageBackground
@@ -58,31 +56,15 @@ export default function TitleScreen() {
         </Text>
 
         {/* スタートボタン */}
-        <Pressable
+        <ChalkboardButton
+          label="4年生スタート"
           onPress={() => router.push("/name")}
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.85 : 1,
-            transform: [{ scale: pressed ? 0.96 : 1 }],
-          })}
-        >
-          <View
-            className="items-center justify-center"
-            style={{ width: btnW, height: btnW * 0.42 }}
-          >
-            <Image
-              source={require("@/assets/images/game/turn-badge.png")}
-              className="absolute"
-              style={{ width: btnW, height: btnW * 0.42 }}
-              resizeMode="contain"
-            />
-            <Text
-              className="font-black"
-              style={{ fontSize: 20, color: "#2a1a0a", letterSpacing: 3 }}
-            >
-              スタート
-            </Text>
-          </View>
-        </Pressable>
+        />
+
+        {/* 補足テキスト */}
+        <Text style={{ marginTop: 24, fontSize: 12, color: "#6b7280" }}>
+          全8ターン / 約2分 / CPU or 通信対戦
+        </Text>
       </View>
 
       {/* ヘルプボタン */}
@@ -138,8 +120,11 @@ export default function TitleScreen() {
             </ScrollView>
             <Pressable
               onPress={() => setShowHelp(false)}
-              className="rounded-lg py-2.5 mt-2"
-              style={{ backgroundColor: "#A08050" }}
+              style={{
+                backgroundColor: "#15803d",
+                borderRadius: 8,
+                paddingVertical: 10,
+              }}
             >
               <Text className="text-center font-bold" style={{ color: "#1a1a1a" }}>
                 閉じる

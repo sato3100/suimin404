@@ -13,6 +13,7 @@ import {
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSound } from "./_layout";
 
 type Mode = "cpu" | "online";
 
@@ -21,10 +22,12 @@ export default function NameScreen() {
   const { width } = useWindowDimensions();
   const [name, setName] = useState("");
   const [mode, setMode] = useState<Mode>("cpu");
+  const { playClickSound } = useSound();
   const isValid = name.trim().length > 0;
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!isValid) return;
+    await playClickSound();
     router.push({ pathname: "/matching", params: { name: name.trim(), mode } });
   };
 
@@ -41,7 +44,10 @@ export default function NameScreen() {
 
       {/* 戻るボタン */}
       <Pressable
-        onPress={() => router.back()}
+        onPress={async () => {
+          await playClickSound();
+          router.back();
+        }}
         hitSlop={16}
         className="absolute left-4 z-10 flex-row items-center px-3 py-2 rounded-full"
         style={{ top: insets.top + 8, backgroundColor: "rgba(0,0,0,0.5)" }}
