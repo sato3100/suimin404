@@ -49,14 +49,14 @@ const CARD_IMAGES: Record<string, ReturnType<typeof require>> = {
   drop_course: require("@/assets/images/game/card-drop-course.jpg"),
   grade_hack:  require("@/assets/images/game/card-grade-hack.jpg"),
   nightlife:   require("@/assets/images/game/card-nightlife.jpg"),
-  bakusui:   require("@/assets/images/game/card-bakusui.jpg"),
-  dogeza:   require("@/assets/images/game/card-dogeza.jpg"),
-  enjo:   require("@/assets/images/game/card-enjo.jpg"),
-  ghostwriter:   require("@/assets/images/game/card-ghostwriter.jpg"),
-  hirune:   require("@/assets/images/game/card-hirune.jpg"),
-  native:   require("@/assets/images/game/card-native.jpg"),
-  soturon:   require("@/assets/images/game/card-soturon.jpg"),
-  suwarikomi:   require("@/assets/images/game/card-suwarikomi.jpg"),
+  bakusui:     require("@/assets/images/game/card-bakusui.jpg"),
+  dogeza:      require("@/assets/images/game/card-dogeza.png"),
+  enjo:        require("@/assets/images/game/card-enjo.jpg"),
+  ghostwriter: require("@/assets/images/game/card-ghostwriter.jpg"),
+  hirune:      require("@/assets/images/game/card-hirune.jpg"),
+  native:      require("@/assets/images/game/card-native.jpg"),
+  soturon:     require("@/assets/images/game/card-soturon.jpg"),
+  suwarikomi:  require("@/assets/images/game/card-suwarikomi.jpg"),
 
 
 };
