@@ -17,6 +17,7 @@ import {
   TOTAL_TURNS,
   seededRandom,
 } from "@/data/cards";
+import { INITIAL_HAND_SIZE } from "@/game/engine";
 import { updateRating } from "./ratingService";
 
 // ゲーム開始：lobbyのplayer1がゲームドキュメントを作成
@@ -26,6 +27,11 @@ export async function startGame(
   player2Id: string,
 ): Promise<string> {
   const deckSeed = Math.floor(Math.random() * 1_000_000);
+  // deck[0..19]: ターンドロー用, deck[20..32]: extraDraw用
+  // deck[33..35]: player1初期手札, deck[36..38]: player2初期手札
+  const deck = createDeckWithSeed(deckSeed);
+  const player1Hand = deck.slice(-(INITIAL_HAND_SIZE * 2), -INITIAL_HAND_SIZE);
+  const player2Hand = deck.slice(-INITIAL_HAND_SIZE);
 
   return await runTransaction(db, async (tx) => {
     const lobbyRef = doc(db, "lobbies", lobbyId);
@@ -43,8 +49,8 @@ export async function startGame(
       player2Id,
       deckSeed,
       currentTurn: 1,
-      player1Hand: [],
-      player2Hand: [],
+      player1Hand,
+      player2Hand,
       player1BonusCredits: 0,
       player2BonusCredits: 0,
       player1UsedVolunteer: false,
