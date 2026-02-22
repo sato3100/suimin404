@@ -5,7 +5,6 @@ import {
   Pressable,
   ImageBackground,
   Image,
-  useWindowDimensions,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -70,7 +69,6 @@ function ResultContent({
   endingLabel: string;
   resultPath: string;
 }) {
-  const { width } = useWindowDimensions();
   const resultImage = getResultImage(myCredits, won);
   const { playWinBgm, playLoseBgm } = useSound();
 
@@ -123,41 +121,38 @@ function ResultContent({
     >
       <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#8B7355" }}>
         <StatusBar style="light" />
-        <View className="flex-1 items-center justify-center px-6" style={{ gap: 12 }}>
-          {/* 結果画像 */}
-          <Animated.View style={[{ alignItems: "center" }, imgStyle]}>
-            <Image
-              source={resultImage}
-              style={{ width: width * 0.92, height: width * 0.92 * 0.65 }}
-              resizeMode="contain"
-            />
-            {/* 中退の場合のオーバーレイテキスト */}
-            {isDropout && (
-              <View
-                className="absolute items-center justify-center"
+
+        {/* 結果画像: 上78%を占有 */}
+        <Animated.View style={[{ flex: 0.78, width: "100%" }, imgStyle]}>
+          <Image
+            source={resultImage}
+            style={{ flex: 1, width: "100%" }}
+            resizeMode="contain"
+          />
+          {/* 中退の場合のオーバーレイテキスト */}
+          {isDropout && (
+            <View
+              className="absolute items-center justify-center"
+              style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+            >
+              <Text
+                className="font-black"
                 style={{
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
+                  fontSize: 36,
+                  color: "#fff",
+                  textShadowColor: "rgba(0,0,0,0.8)",
+                  textShadowRadius: 8,
+                  textShadowOffset: { width: 2, height: 2 },
                 }}
               >
-                <Text
-                  className="font-black"
-                  style={{
-                    fontSize: 36,
-                    color: "#fff",
-                    textShadowColor: "rgba(0,0,0,0.8)",
-                    textShadowRadius: 8,
-                    textShadowOffset: { width: 2, height: 2 },
-                  }}
-                >
-                  中退
-                </Text>
-              </View>
-            )}
-          </Animated.View>
+                中退
+              </Text>
+            </View>
+          )}
+        </Animated.View>
 
+        {/* テキスト情報: 下22% */}
+        <View style={{ flex: 0.22, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 }}>
           {/* エンディング + 勝敗テキスト */}
           <Animated.View className="items-center" style={textStyle}>
             <Text

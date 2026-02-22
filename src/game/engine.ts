@@ -35,6 +35,7 @@ export interface GameResult {
 
 // ─── 定数 ───────────────────────────────────────────────────────────────────
 export const INITIAL_HAND_SIZE = 3;
+export const MAX_HAND_SIZE = 8;
 
 // ─── ターン判定（奇数=プレイヤー、偶数=CPU） ────────────────────────────────
 export function isPlayerTurn(turn: number): boolean {
@@ -87,6 +88,14 @@ export function drawCard(state: GameState): GameState {
   const newDeck = [...state.deck];
   const card = newDeck.pop()!;
 
+  const canDraw = player
+    ? state.playerHand.length < MAX_HAND_SIZE
+    : state.cpuHand.length < MAX_HAND_SIZE;
+
+  if (!canDraw) {
+    return { ...state, phase: "action", actionsRemaining: 1 };
+  }
+
   return {
     ...state,
     deck: newDeck,
@@ -103,6 +112,8 @@ function drawExtra(state: GameState, count: number, forPlayer: boolean): GameSta
   let s = { ...state };
   for (let i = 0; i < count; i++) {
     if (s.deck.length === 0) break;
+    const handSize = forPlayer ? s.playerHand.length : s.cpuHand.length;
+    if (handSize >= MAX_HAND_SIZE) break;
     const newDeck = [...s.deck];
     const card = newDeck.pop()!;
     s = {
@@ -248,7 +259,7 @@ export function determineResult(state: GameState): GameResult {
   else {
     const pDiff = Math.abs(playerCredits - GRADUATION_CREDITS);
     const cDiff = Math.abs(cpuCredits - GRADUATION_CREDITS);
-    playerWon = pDiff <= cDiff;
+    playerWon = pDiff < cDiff;
   }
 
   let ending: string;

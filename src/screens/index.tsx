@@ -37,6 +37,17 @@ export default function TitleScreen() {
     setShowHelp(true);
   };
 
+  // 画像サイズ（見た目）
+  const logoW = width * 0.88;
+  const logoH = logoW * 0.6;
+
+  const startImgW = width * 0.75;
+  const startImgH = startImgW; // ここは画像比率に合わせて調整してOK
+
+  // 当たり判定（見た目は変えずに小さく）
+  const startHitW = startImgW * 0.65;
+  const startHitH = startImgH * 0.35;
+
   return (
     <ImageBackground
       source={require("@/assets/images/game/bg-dark.png")}
@@ -46,35 +57,60 @@ export default function TitleScreen() {
     >
       <StatusBar style="light" />
 
-      <View className="flex-1 items-center px-8">
-        {/* タイトルロゴ（中央） */}
-        <View className="flex-1 items-center justify-center">
-          <Image
-            source={require("@/assets/images/game/title-logo.jpg")}
-            style={{
-              width: width * 0.88,
-              height: width * 0.88 * 0.6,
-              borderRadius: 16,
-            }}
-            resizeMode="cover"
-          />
-        </View>
+      {/* ロゴを中心に、下に「対戦開始」を配置 */}
+      <View
+        className="flex-1 items-center px-8"
+        style={{
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 8,
+          justifyContent: "center",
+        }}
+      >
+        {/* ロゴ */}
+        <Image
+          source={require("@/assets/images/game/title-logo.png")}
+          style={{
+            width: logoW,
+            height: logoH,
+            borderRadius: 16,
+          }}
+          resizeMode="cover"
+        />
 
-        {/* スタートボタン（start-button.png 画像のみ） */}
-        <Pressable
-          onPress={handleStart}
-          className="mb-16"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.85 : 1,
-            transform: [{ scale: pressed ? 0.96 : 1 }],
-          })}
+        {/* ロゴとボタンの距離（ここを変える） */}
+        <View style={{ height: 20 }} />
+
+        {/* スタートボタン：見た目は大きいまま / 当たり判定だけ小さく */}
+        <View
+          style={{
+            width: startImgW,
+            height: startImgH,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
+          {/* 見た目 */}
           <Image
-            source={require("@/assets/images/game/start-button.png")}
-            style={{ width: width * 0.75 * 4, height: width * 0.75 * 0.28 * 4}}
+
+            source={require("@/assets/images/game/title-start.png")}
+            style={{ width: startImgW, height: startImgH }}
             resizeMode="contain"
           />
-        </Pressable>
+
+          {/* 当たり判定 */}
+          <Pressable
+            onPress={handleStart}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 100,
+              right: 0,
+              bottom: 0,
+              zIndex: 999,
+              elevation: 999,
+            }}
+          />
+        </View>
       </View>
 
       {/* ヘルプボタン */}
@@ -102,7 +138,11 @@ export default function TitleScreen() {
         >
           <Pressable
             className="rounded-2xl p-6"
-            style={{ backgroundColor: "#2A1F14", borderWidth: 2, borderColor: "#A08050" }}
+            style={{
+              backgroundColor: "#2A1F14",
+              borderWidth: 2,
+              borderColor: "#A08050",
+            }}
             onPress={(e) => e.stopPropagation()}
           >
             <Text

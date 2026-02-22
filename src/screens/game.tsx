@@ -27,8 +27,6 @@ import {
   useCard,
   passTurn,
   isPlayerTurn,
-  getPlayerCredits,
-  getCpuCredits,
   determineResult,
 } from "@/game/engine";
 import { cpuAction } from "@/game/cpu";
@@ -43,6 +41,15 @@ const IMG_TURN = require("@/assets/images/game/turn-badge.png");
 const IMG_PASS = require("@/assets/images/game/pass-button.png");
 const IMG_SLEEVE = require("@/assets/images/game/card-sleeve.png");
 const IMG_CARD = require("@/assets/images/game/card-face-2.png");
+
+// ─── カード別画像マップ ───────────────────────────────────────────────────────
+const CARD_IMAGES: Record<string, ReturnType<typeof require>> = {
+  all_nighter: require("@/assets/images/game/card-all-nighter.jpg"),
+  gacha:       require("@/assets/images/game/card-gacha.jpg"),
+  drop_course: require("@/assets/images/game/card-drop-course.jpg"),
+  grade_hack:  require("@/assets/images/game/card-grade-hack.jpg"),
+  nightlife:   require("@/assets/images/game/card-nightlife.jpg"),
+};
 
 // ─── カテゴリ色 ──────────────────────────────────────────────────────────────
 const CAT_BG: Record<string, string> = {
@@ -60,10 +67,6 @@ const CAT_LABEL: Record<string, string> = {
 function effectLines(card: Card): string[] {
   const e = card.useEffect;
   const l: string[] = [];
-  if (e.selfBonus !== undefined && e.selfBonus !== 0)
-    l.push(`自分 ${e.selfBonus > 0 ? "+" : ""}${e.selfBonus}単位`);
-  if (e.opponentBonus !== undefined && e.opponentBonus !== 0)
-    l.push(`相手 ${e.opponentBonus > 0 ? "+" : ""}${e.opponentBonus}単位`);
   if (e.gamble) l.push(`50%で+${e.gamble.win} / 50%で${e.gamble.lose}単位`);
   if (e.drawCards) l.push(`${e.drawCards}枚ドロー`);
   if (e.extraActions) l.push(`行動回数+${e.extraActions}`);
@@ -118,12 +121,11 @@ function FieldCard({ card, cardW, cardH }: { card: Card | null; cardW: number; c
 
   return (
     <Animated.View style={[{ width: cardW, height: cardH, borderRadius: 10, overflow: "hidden" }, anim]}>
-      <ImageBackground source={IMG_CARD} className="flex-1 items-center justify-center p-2" resizeMode="cover">
-        <View className="rounded-lg px-3 py-2 items-center" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-          <Text className="font-black text-white" style={{ fontSize: 14 }} numberOfLines={1}>{card.name}</Text>
-          <Text style={{ fontSize: 12, color: "#D4C4A0" }}>{card.keepValue}単位</Text>
-        </View>
-      </ImageBackground>
+      <Image
+        source={CARD_IMAGES[card.id] ?? IMG_CARD}
+        style={{ width: cardW, height: cardH }}
+        resizeMode="cover"
+      />
     </Animated.View>
   );
 }
@@ -140,23 +142,37 @@ function DeckPile({ count, w, h }: { count: number; w: number; h: number }) {
   );
 }
 
-function CreditBadge({ value, bonus, size = 100 }: { value: number; bonus: number; size?: number }) {
+function CreditBadge({ value, size = 120 }: { value: number; size?: number }) {
+  // credit-badge.png: 1024×1536（縦長2:3）
+  // contain で表示すると幅=0.667*size, 高さ=size の範囲に収まり、円は上41%付近に中心
+  const digits = String(value).length;
+  const fontSize = Math.round(size * (digits <= 1 ? 0.32 : digits === 2 ? 0.24 : 0.17));
+  const topOffset = Math.round(size * 0.41 - fontSize * 0.5);
   return (
-    <View className="items-center justify-center" style={{ width: size, height: size }}>
-      <Image source={IMG_CREDIT} className="absolute" style={{ width: size, height: size }} resizeMode="contain" />
-      <View className="flex-row items-baseline">
-        <Text className="font-black" style={{ fontSize: size * 0.32, color: "#1a1a1a" }}>{value}</Text>
-        {bonus > 0 && <Text className="font-bold" style={{ fontSize: size * 0.16, color: "#5a4020" }}>+{bonus}</Text>}
-      </View>
+    <View style={{ width: size, height: size }}>
+      <Image source={IMG_CREDIT} style={{ position: "absolute", width: size, height: size }} resizeMode="contain" />
+      <Text
+        style={{
+          position: "absolute",
+          left: 0, right: 0,
+          top: topOffset,
+          textAlign: "center",
+          fontWeight: "900",
+          fontSize,
+          color: "#1a1a1a",
+        }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
 
 function TurnBadge({ text, width: w }: { text: string; width: number }) {
   return (
-    <View className="items-center justify-center" style={{ width: w, height: w * 0.36 }}>
-      <Image source={IMG_TURN} className="absolute w-full h-full" resizeMode="contain" />
-      <Text className="font-black" style={{ fontSize: 14, color: "#2a1a0a" }}>{text}</Text>
+    <View style={{ alignItems: "center", justifyContent: "center", width: w, height: w * 0.40 }}>
+      <Image source={IMG_TURN} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="contain" />
+      <Text style={{ fontWeight: "900", fontSize: Math.round(w * 0.11), color: "#2a1a0a" }}>{text}</Text>
     </View>
   );
 }
@@ -187,20 +203,17 @@ function HandCard({ card, isSelected, onPress, disabled, w, h }: {
           {
             width: w, height: h, borderRadius: 10, overflow: "hidden",
             borderWidth: isSelected ? 3 : 0,
-            borderColor: isSelected ? "#4ade80" : "transparent",
+            borderColor: isSelected ? "#fbbf24" : "transparent",
             opacity: disabled ? 0.4 : 1,
           },
           anim,
         ]}
       >
-        <ImageBackground source={IMG_CARD} className="flex-1 p-1.5 justify-between" resizeMode="cover">
-          <View className="self-end rounded-md px-1.5 py-0.5" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
-            <Text className="font-black text-white" style={{ fontSize: 12 }}>{card.keepValue}単位</Text>
-          </View>
-          <View className="rounded-md px-1.5 py-1.5" style={{ backgroundColor: CAT_BG[card.category], opacity: 0.92 }}>
-            <Text className="font-extrabold text-white text-center" style={{ fontSize: 10 }} numberOfLines={1}>{card.name}</Text>
-          </View>
-        </ImageBackground>
+        <Image
+          source={CARD_IMAGES[card.id] ?? IMG_CARD}
+          style={{ width: w, height: h }}
+          resizeMode="cover"
+        />
       </Animated.View>
     </Pressable>
   );
@@ -275,9 +288,12 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
   const miniW = width * 0.17;
   const miniH = miniW * 1.4;
   const badgeSize = 110;
-  const turnW = width * 0.48;
-  
   const { playGameBtnSound, playDrawSound, playAttackSound, playCreditSound } = useSound();//効果音
+  const myBadgeSize = Math.round(width * 0.44);
+  const opBadgeSize = Math.round(width * 0.32);
+  const turnW = Math.round(width * 0.55);
+  const passW = Math.round(width * 0.34);
+  const passH = Math.round(passW * 384 / 684);
 
   const [state, setState] = useState<GameState>(createInitialState);
   const [sel, setSel] = useState<number | null>(null);
@@ -287,17 +303,22 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
   const pt = isPlayerTurn(state.turn);
   const canAct = pt && state.phase === "action";
   const pCommit = STARTING_CREDITS + state.playerBonusCredits;
-  const pHand = state.playerHand.reduce((s, c) => s + c.keepValue, 0);
   const cCommit = STARTING_CREDITS + state.cpuBonusCredits;
-  const cHand = state.cpuHand.reduce((s, c) => s + c.keepValue, 0);
   const selected = sel !== null ? state.playerHand[sel] : null;
+  const lastLog = state.log.length > 0 ? state.log[state.log.length - 1] : null;
+  const myName = playerName || "あなた";
+  const turnLabel = pt ? `あなたのターン ${state.turn}/10` : `CPUのターン ${state.turn}/10`;
 
   useEffect(() => {
     if (state.phase === "action" && pt && state.playerHand.length > 0) {
       setDrawn(state.playerHand[state.playerHand.length - 1]);
-      playDrawSound();
-    } else setDrawn(null);
-  }, [state.turn, state.phase]);
+        playDrawSound();
+    } else {
+      setDrawn(null);
+    }
+    
+    // 依存配列に length を追加することで、枚数が変わった瞬間にこのEffectが再走ります
+  }, [state.turn, state.phase, state.playerHand.length]);
 
   useEffect(() => {
     if (state.phase === "ended") {
@@ -353,57 +374,69 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
       <BattleFlash visible={flash} />
 
       {/* ─── 相手エリア ─── */}
-      <View className="px-4 pb-3" style={{ paddingTop: insets.top + 8 }}>
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 6 }}>
         {/* 相手の手札（裏面） */}
-        <View className="flex-row justify-center mb-3" style={{ gap: 6 }}>
+        <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 8, gap: 6 }}>
           {Array.from({ length: state.cpuHand.length || 3 }).map((_, i) => (
             <FaceDownCard key={i} visible={state.cpuHand.length > 0} w={miniW} h={miniH} />
           ))}
         </View>
         {/* 相手名前 + ターン + 単位数 */}
-        <View className="flex-row items-center justify-between">
+        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
+          {/* 左: 名前 + ターン数バッジ */}
           <View>
-            <Text className="font-bold mb-1" style={{ fontSize: 12, color: "#D4C4A0" }}>
-              {playerName ? "CPU" : "相手の名前"}
+            <Text style={{ fontSize: 11, color: "#D4C4A0", fontWeight: "700", marginBottom: 3 }}>
+              CPU
             </Text>
-            <TurnBadge text={`ターン数 ${state.turn}/10`} width={turnW} />
+            <TurnBadge text={turnLabel} width={turnW} />
           </View>
-          <View className="items-center">
-            <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
-            <CreditBadge value={cCommit} bonus={cHand} size={badgeSize} />
+          {/* 右: 単位数ラベル + バッジ */}
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
+            <CreditBadge value={cCommit} size={opBadgeSize} />
           </View>
         </View>
       </View>
 
       {/* ─── フィールド（中央） ─── */}
-      <View className="flex-1 flex-row items-center justify-center" style={{ gap: 28 }}>
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 28 }}>
         <FieldCard card={drawn} cardW={cardW} cardH={cardH} />
         <DeckPile count={state.deck.length} w={cardW} h={cardH} />
       </View>
 
-      {/* ─── 自分エリア ─── */}
-      <View className="flex-row items-center px-4 py-2">
-        <View className="items-center">
-          <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
-          <CreditBadge value={pCommit} bonus={pHand} size={badgeSize} />
-        </View>
-        {canAct && state.actionsRemaining > 1 && (
-          <View className="ml-2 rounded-lg px-2 py-0.5" style={{ backgroundColor: "rgba(234,179,8,0.3)" }}>
-            <Text className="font-bold" style={{ fontSize: 11, color: "#eab308" }}>残{state.actionsRemaining}回</Text>
+      {/* ─── エフェクトログ ─── */}
+      {lastLog && (
+        <View style={{ alignItems: "center", paddingHorizontal: 16, paddingBottom: 4 }}>
+          <View style={{ borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: "rgba(0,0,0,0.55)" }}>
+            <Text style={{ fontSize: 12, color: "#F5E6C8", textAlign: "center" }} numberOfLines={1}>{lastLog}</Text>
           </View>
-        )}
-        <View className="flex-1" />
-        {canAct && (
-          <Pressable onPress={onPass} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
-            <View className="items-center justify-center" style={{ width: 130, height: 56 }}>
-              <Image source={IMG_PASS} className="absolute w-full h-full" resizeMode="contain" />
-              <Text className="font-black" style={{ fontSize: 18, color: "#2a1a0a" }}>パス</Text>
+        </View>
+      )}
+
+      {/* ─── 自分エリア ─── */}
+      <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8 }}>
+        {/* 左: 単位数ラベル + バッジ */}
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>{myName}</Text>
+          <CreditBadge value={pCommit} size={myBadgeSize} />
+          {canAct && state.actionsRemaining > 1 && (
+            <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(234,179,8,0.3)", marginTop: 4 }}>
+              <Text style={{ fontWeight: "700", fontSize: 10, color: "#eab308" }}>残{state.actionsRemaining}回</Text>
+            </View>
+          )}
+        </View>
+        <View style={{ flex: 1 }} />
+        {/* 右: パスボタン or 相手ターン表示 */}
+        {canAct ? (
+          <Pressable onPress={onPass} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }], marginBottom: 4 })}>
+            <View style={{ alignItems: "center", justifyContent: "center", width: passW, height: passH }}>
+              <Image source={IMG_PASS} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="contain" />
+              <Text style={{ fontWeight: "900", fontSize: Math.round(passW * 0.14), color: "#2a1a0a" }}>パス</Text>
             </View>
           </Pressable>
-        )}
-        {!pt && state.phase !== "ended" && (
-          <Text className="italic" style={{ fontSize: 14, color: "#8B7355" }}>相手のターン...</Text>
-        )}
+        ) : state.phase !== "ended" ? (
+          <Text style={{ fontSize: 13, color: "#8B7355", fontStyle: "italic", marginBottom: 4 }}>相手のターン...</Text>
+        ) : null}
       </View>
 
       {/* ─── 手札 ─── */}
@@ -429,8 +462,11 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
   const cardH = cardW * 1.4;
   const miniW = width * 0.17;
   const miniH = miniW * 1.4;
-  const badgeSize = 110;
-  const turnW = width * 0.48;
+  const myBadgeSize = Math.round(width * 0.44);
+  const opBadgeSize = Math.round(width * 0.32);
+  const turnW = Math.round(width * 0.55);
+  const passW = Math.round(width * 0.34);
+  const passH = Math.round(passW * 384 / 684);
 
   const { playGameBtnSound, playDrawSound, playAttackSound, playCreditSound } = useSound();
 
@@ -443,10 +479,9 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
     const isP1 = playerId === game.player1Id;
     const myH = isP1 ? game.player1Hand : game.player2Hand;
     const oppH = isP1 ? game.player2Hand : game.player1Hand;
-    const myB = isP1 ? game.player1BonusCredits : game.player2BonusCredits;
-    const oppB = isP1 ? game.player2BonusCredits : game.player1BonusCredits;
-    const myC = STARTING_CREDITS + myH.reduce((s, c) => s + c.keepValue, 0) + myB;
-    const oppC = STARTING_CREDITS + oppH.reduce((s, c) => s + c.keepValue, 0) + oppB;
+    const myBonus = isP1 ? game.player1BonusCredits : game.player2BonusCredits;
+    const myC = STARTING_CREDITS + myH.reduce((s, c) => s + c.keepValue, 0) + myBonus;
+    const oppC = STARTING_CREDITS + oppH.reduce((s, c) => s + c.keepValue, 0);
     setLastOnlineResult({ myCredits: myC, opponentCredits: oppC, myName: "あなた", opponentName, won: game.winnerId === playerId, myGraduated: myC >= GRADUATION_CREDITS, opponentGraduated: oppC >= GRADUATION_CREDITS });
     const t = setTimeout(() => router.replace("/battle-result?mode=online"), 800);
     return () => clearTimeout(t);
@@ -464,7 +499,6 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
   const timerColor = timeLeft > 30 ? "#D4C4A0" : timeLeft > 10 ? "#d97706" : "#dc2626";
   const myB = game.player1Id === playerId ? game.player1BonusCredits : game.player2BonusCredits;
   const commit = STARTING_CREDITS + myB;
-  const handVal = myHand.reduce((s, c) => s + c.keepValue, 0);
 
   return (
     <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
@@ -472,48 +506,49 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
       <BattleFlash visible={flash} />
 
       {/* 相手 */}
-      <View className="px-4 pb-3" style={{ paddingTop: insets.top + 8 }}>
-        <View className="flex-row justify-center mb-3" style={{ gap: 6 }}>
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 6 }}>
+        <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 8, gap: 6 }}>
           {Array.from({ length: opponentHandCount || 3 }).map((_, i) => (
             <FaceDownCard key={i} visible={opponentHandCount > 0} w={miniW} h={miniH} />
           ))}
         </View>
-        <View className="flex-row items-center justify-between">
+        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
           <View>
-            <Text className="font-bold mb-1" style={{ fontSize: 12, color: "#D4C4A0" }}>{opponentName}</Text>
+            <Text style={{ fontSize: 11, color: "#D4C4A0", fontWeight: "700", marginBottom: 3 }}>{opponentName}</Text>
             <TurnBadge text={`ターン数 ${game.currentTurn}/10`} width={turnW} />
           </View>
-          <View className="items-center">
-            <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
-            <CreditBadge value={opponentCredits} bonus={0} size={badgeSize} />
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
+            <CreditBadge value={opponentCredits} size={opBadgeSize} />
           </View>
         </View>
       </View>
 
       {/* タイマー */}
-      <View className="flex-1 items-center justify-center">
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         {isMyTurn ? (
-          <Text className="font-black" style={{ fontSize: 32, color: timerColor }}>{timeLeft}s</Text>
+          <Text style={{ fontWeight: "900", fontSize: 32, color: timerColor }}>{timeLeft}s</Text>
         ) : (
-          <Text className="italic" style={{ fontSize: 16, color: "#8B7355" }}>相手の行動を待っています...</Text>
+          <Text style={{ fontSize: 16, color: "#8B7355", fontStyle: "italic" }}>相手の行動を待っています...</Text>
         )}
       </View>
 
       {/* 自分 */}
-      <View className="flex-row items-center px-4 py-2">
-        <View className="items-center">
-          <Text style={{ fontSize: 11, color: "#D4C4A0" }}>単位数</Text>
-          <CreditBadge value={commit} bonus={handVal} size={badgeSize} />
+      <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8 }}>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
+          <CreditBadge value={commit} size={myBadgeSize} />
         </View>
-        <View className="flex-1" />
+        <View style={{ flex: 1 }} />
         {isMyTurn && (
           <Pressable
+
             onPress={() => { playCreditSound(); submitAction({ type: "pass" }); setSel(null); }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] })}
+            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }], marginBottom: 4 })}
           >
-            <View className="items-center justify-center" style={{ width: 130, height: 56 }}>
-              <Image source={IMG_PASS} className="absolute w-full h-full" resizeMode="contain" />
-              <Text className="font-black" style={{ fontSize: 18, color: "#2a1a0a" }}>パス</Text>
+            <View style={{ alignItems: "center", justifyContent: "center", width: passW, height: passH }}>
+              <Image source={IMG_PASS} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="contain" />
+              <Text style={{ fontWeight: "900", fontSize: Math.round(passW * 0.14), color: "#2a1a0a" }}>パス</Text>
             </View>
           </Pressable>
         )}
