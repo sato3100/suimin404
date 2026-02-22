@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback  } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSound } from "./_layout";
 
@@ -18,7 +18,14 @@ export default function TitleScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { playClickSound } = useSound();
+  const { playClickSound, playTitleBgm } = useSound();
+
+  // ★ 追加: 画面が「フォーカスされた（表示された）」時にタイトルBGMを流す
+  useFocusEffect(
+    useCallback(() => {
+      playTitleBgm();
+    }, [])
+  );
 
   const handleStart = async () => {
     await playClickSound();
@@ -84,6 +91,7 @@ export default function TitleScreen() {
         >
           {/* 見た目 */}
           <Image
+
             source={require("@/assets/images/game/title-start.png")}
             style={{ width: startImgW, height: startImgH }}
             resizeMode="contain"
