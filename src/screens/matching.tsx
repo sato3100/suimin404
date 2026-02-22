@@ -17,25 +17,49 @@ const BG = require("@/assets/images/game/bg-parchment.png");
 const IMG_TURN = require("@/assets/images/game/turn-badge.png");
 const IMG_CREDIT = require("@/assets/images/game/credit-badge.png");
 
+const PHOTO_1 = require("@/assets/images/chicken.png");
+const PHOTO_2 = require("@/assets/images/chicken2.png");
+
 // ─── 名前プレート（turn-badge + テキスト） ──────────────────────────────────
-function NamePlate({ name, width }: { name: string; width: number }) {
+function NamePlate({ name, width, photoSource }: { name: string; width: number; photoSource: any }) {
+  const photoSize = width * 0.55;
   return (
-    <View
-      className="items-center justify-center"
-      style={{ width, height: width * 0.36 }}
-    >
-      <Image
-        source={IMG_TURN}
-        className="absolute w-full h-full"
-        resizeMode="contain"
-      />
-      <Text
-        className="font-black"
-        style={{ fontSize: 15, color: "#2a1a0a" }}
-        numberOfLines={1}
+    <View className="items-center">
+      <View
+        className="items-center justify-center bg-black/20"
+        style={{
+          width: photoSize,
+          height: photoSize,
+          borderWidth: 3,
+          borderColor: "#A08050",
+          marginBottom: 10,
+          overflow: "hidden",
+        }}
       >
-        {name}
-      </Text>
+        {photoSource ? (
+          <Image source={photoSource} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+        ) : (
+          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>Wait...</Text>
+        )}
+      </View>
+
+      <View
+        className="items-center justify-center"
+        style={{ width, height: width * 0.36 }}
+      >
+        <Image
+          source={IMG_TURN}
+          className="absolute w-full h-full"
+          resizeMode="contain"
+        />
+        <Text
+          className="font-black"
+          style={{ fontSize: 15, color: "#2a1a0a" }}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -129,6 +153,16 @@ export default function MatchingScreen() {
         return null;
       })();
 
+  // 👇 ここから追加：写真の割り当てロジック
+  // 自分が先に入ったプレイヤー(player1)かを判定
+  const isPlayer1 = isCpu 
+    ? true // CPU戦なら自分が必ずPlayer1
+    : (state.lobby ? state.lobby.player1.userId === state.userId : true);
+
+  // 判定結果をもとに、自分と相手の写真を決定
+  const myPhoto = isPlayer1 ? PHOTO_1 : PHOTO_2;
+  const opponentPhoto = isPlayer1 ? PHOTO_2 : PHOTO_1;    
+
   return (
     <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#8B7355" }}>
       <StatusBar style="light" />
@@ -150,6 +184,7 @@ export default function MatchingScreen() {
           <NamePlate
             name={opponentInfo?.name ?? "検索中..."}
             width={plateW}
+            photoSource={opponentInfo ? opponentPhoto : null}
           />
         </View>
       </View>
@@ -189,7 +224,7 @@ export default function MatchingScreen() {
       {/* 下半分: 自分 */}
       <View className="flex-1 items-end px-8 justify-center pb-5">
         <View style={{ opacity: showSelf ? 1 : 0 }}>
-          <NamePlate name={name ?? "あなた"} width={plateW} />
+          <NamePlate name={name ?? "あなた"} width={plateW} photoSource={myPhoto}/>
         </View>
         <View style={{ opacity: showInfo ? 1 : 0 }}>
           <Text
