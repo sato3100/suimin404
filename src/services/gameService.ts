@@ -73,25 +73,32 @@ export function subscribeGame(
   });
 }
 
-// カード効果を適用（新カードシステム対応）
+// カード効果を適用（全効果対応）
 function applyCardEffect(
   card: Card,
   isPlayer1: boolean,
   p1Bonus: number,
   p2Bonus: number,
-  _p1Vol: boolean,
-  _p2Vol: boolean,
   deckSeed: number,
   turn: number,
+  p1Hand: Card[],
+  p2Hand: Card[],
+  extraDrawCount: number,
+  deck: Card[],
 ): {
   p1Bonus: number;
   p2Bonus: number;
-  p1Vol: boolean;
-  p2Vol: boolean;
+  p1Hand: Card[];
+  p2Hand: Card[];
+  extraDrawCount: number;
   logMsg: string;
+  skipNextDraw: boolean;
+  extraActionsCount: number;
 } {
   const eff = card.useEffect;
   let logMsg = `⚡ ${card.name}を使用！`;
+  let skipNextDraw = false;
+  let extraActionsCount = 0;
 
   // 自己ボーナス
   if (eff.selfBonus !== undefined && eff.selfBonus !== 0) {
@@ -116,7 +123,56 @@ function applyCardEffect(
     logMsg += won ? ` 成功！+${eff.gamble.win}単位` : ` 失敗... ${eff.gamble.lose}単位`;
   }
 
-  return { p1Bonus, p2Bonus, p1Vol: _p1Vol, p2Vol: _p2Vol, logMsg };
+  // 次のターンのドローをスキップ（自分）
+  if (eff.skipNextDraw) {
+    skipNextDraw = true;
+  }
+
+  // 追加行動
+  if (eff.extraActions && eff.extraActions > 0) {
+    extraActionsCount = eff.extraActions;
+  }
+
+  // 追加ドロー（デッキの TOTAL_TURNS 以降を使用）
+  if (eff.drawCards && eff.drawCards > 0) {
+    for (let i = 0; i < eff.drawCards; i++) {
+      const extra = deck[TOTAL_TURNS + extraDrawCount];
+      if (extra) {
+        if (isPlayer1) p1Hand = [...p1Hand, extra];
+        else p2Hand = [...p2Hand, extra];
+        extraDrawCount++;
+        logMsg += ` 追加ドロー`;
+      }
+    }
+  }
+
+  // 相手カード除外（シード固定でランダム）
+  if (eff.discardOpponent && eff.discardOpponent > 0) {
+    const oppHand = isPlayer1 ? [...p2Hand] : [...p1Hand];
+    for (let i = 0; i < eff.discardOpponent && oppHand.length > 0; i++) {
+      const rand = seededRandom(deckSeed + turn * 1009 + i);
+      const idx = Math.floor(rand() * oppHand.length);
+      const removed = oppHand.splice(idx, 1)[0];
+      logMsg += ` 🗑️相手の${removed.name}を除外！`;
+    }
+    if (isPlayer1) p2Hand = oppHand;
+    else p1Hand = oppHand;
+  }
+
+  // 自分カード除外（シード固定でランダム）
+  if (eff.discardSelf && eff.discardSelf > 0) {
+    const selfHand = isPlayer1 ? [...p1Hand] : [...p2Hand];
+    for (let i = 0; i < eff.discardSelf && selfHand.length > 0; i++) {
+      const rand = seededRandom(deckSeed + turn * 1013 + i);
+      const idx = Math.floor(rand() * selfHand.length);
+      const removed = selfHand.splice(idx, 1)[0];
+      logMsg += ` 🗑️${removed.name}を捨てた`;
+    }
+    if (isPlayer1) p1Hand = selfHand;
+    else p2Hand = selfHand;
+  }
+
+  return { p1Bonus, p2Bonus, p1Hand, p2Hand, extraDrawCount, logMsg, skipNextDraw, extraActionsCount };
 }
 
 function computeCredits(hand: Card[], bonus: number): number {
@@ -135,7 +191,8 @@ function computeWinner(game: FirestoreGame): string | null {
 
   const p1Diff = Math.abs(p1Credits - GRADUATION_CREDITS);
   const p2Diff = Math.abs(p2Credits - GRADUATION_CREDITS);
-  return p1Diff <= p2Diff ? game.player1Id : game.player2Id;
+  // 同距離の場合はP2勝利（engine.tsと統一）
+  return p1Diff < p2Diff ? game.player1Id : game.player2Id;
 }
 
 // アクション送信 + ターン処理（トランザクション）
@@ -159,24 +216,41 @@ export async function submitAction(
     const isP1Turn = turn % 2 === 1;
     if (isPlayer1 !== isP1Turn) return; // 自分のターンではない
 
-    const deck = createDeckWithSeed(game.deckSeed);
-    const drawnCard = deck[turn - 1];
-    if (!drawnCard) return;
+    const myExtraActions = isPlayer1
+      ? (game.player1ExtraActions ?? 0)
+      : (game.player2ExtraActions ?? 0);
+    const isExtraAction = myExtraActions > 0;
 
-    // ドローしたカードを手札に追加
+    const deck = createDeckWithSeed(game.deckSeed);
     let p1Hand = [...game.player1Hand];
     let p2Hand = [...game.player2Hand];
-    if (isPlayer1) {
-      p1Hand = [...p1Hand, drawnCard];
-    } else {
-      p2Hand = [...p2Hand, drawnCard];
-    }
-
     let p1Bonus = game.player1BonusCredits;
     let p2Bonus = game.player2BonusCredits;
     let p1Vol = game.player1UsedVolunteer;
     let p2Vol = game.player2UsedVolunteer;
+    let p1SkipDraw = game.player1SkipDraw ?? false;
+    let p2SkipDraw = game.player2SkipDraw ?? false;
+    let p1ExtraActions = game.player1ExtraActions ?? 0;
+    let p2ExtraActions = game.player2ExtraActions ?? 0;
+    let extraDrawCount = game.extraDrawCount ?? 0;
     const newLog = [...game.log];
+
+    if (!isExtraAction) {
+      // 通常ターン: ドロー処理
+      const skipDraw = isPlayer1 ? p1SkipDraw : p2SkipDraw;
+      if (skipDraw) {
+        newLog.push(isPlayer1 ? "⏭️ ドロースキップ" : "⏭️ 相手のドロースキップ");
+        if (isPlayer1) p1SkipDraw = false;
+        else p2SkipDraw = false;
+      } else {
+        const drawnCard = deck[turn - 1];
+        if (drawnCard) {
+          if (isPlayer1) p1Hand = [...p1Hand, drawnCard];
+          else p2Hand = [...p2Hand, drawnCard];
+        }
+      }
+    }
+    // extraAction 中はドローしない（手札はすでに1アクション目でFirestoreに保存済み）
 
     if (action.type === "use") {
       const hand = isPlayer1 ? p1Hand : p2Hand;
@@ -195,22 +269,45 @@ export async function submitAction(
         isPlayer1,
         p1Bonus,
         p2Bonus,
-        p1Vol,
-        p2Vol,
         game.deckSeed,
         turn,
+        p1Hand,
+        p2Hand,
+        extraDrawCount,
+        deck,
       );
       p1Bonus = result.p1Bonus;
       p2Bonus = result.p2Bonus;
-      p1Vol = result.p1Vol;
-      p2Vol = result.p2Vol;
+      p1Hand = result.p1Hand;
+      p2Hand = result.p2Hand;
+      extraDrawCount = result.extraDrawCount;
+
+      if (result.skipNextDraw) {
+        if (isPlayer1) p1SkipDraw = true;
+        else p2SkipDraw = true;
+      }
+
+      if (result.extraActionsCount > 0) {
+        if (isPlayer1) p1ExtraActions += result.extraActionsCount;
+        else p2ExtraActions += result.extraActionsCount;
+      }
+
       if (result.logMsg) newLog.push(result.logMsg);
     } else {
       newLog.push(isPlayer1 ? "⏭️ パスした（手札をキープ）" : "⏭️ 相手がパスした");
     }
 
-    const nextTurn = turn + 1;
-    const isEnded = nextTurn > TOTAL_TURNS;
+    // 追加行動を消費
+    if (isExtraAction) {
+      if (isPlayer1) p1ExtraActions = Math.max(0, p1ExtraActions - 1);
+      else p2ExtraActions = Math.max(0, p2ExtraActions - 1);
+    }
+
+    // 残り追加行動がなければターンを進める
+    const remainingExtras = isPlayer1 ? p1ExtraActions : p2ExtraActions;
+    const shouldAdvanceTurn = remainingExtras <= 0;
+    const nextTurn = shouldAdvanceTurn ? turn + 1 : turn;
+    const isEnded = shouldAdvanceTurn && nextTurn > TOTAL_TURNS;
 
     const updatedGame: Partial<FirestoreGame> = {
       player1Hand: p1Hand,
@@ -219,6 +316,11 @@ export async function submitAction(
       player2BonusCredits: p2Bonus,
       player1UsedVolunteer: p1Vol,
       player2UsedVolunteer: p2Vol,
+      player1SkipDraw: p1SkipDraw,
+      player2SkipDraw: p2SkipDraw,
+      player1ExtraActions: p1ExtraActions,
+      player2ExtraActions: p2ExtraActions,
+      extraDrawCount,
       currentTurn: isEnded ? turn : nextTurn,
       log: newLog,
     };

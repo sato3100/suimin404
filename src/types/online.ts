@@ -45,6 +45,11 @@ export interface FirestoreGame {
   player2BonusCredits: number;
   player1UsedVolunteer: boolean;
   player2UsedVolunteer: boolean;
+  player1SkipDraw?: boolean;
+  player2SkipDraw?: boolean;
+  player1ExtraActions?: number;
+  player2ExtraActions?: number;
+  extraDrawCount?: number;
   status: "playing" | "ended";
   winnerId: string | null;
   log: string[];

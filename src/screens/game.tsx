@@ -30,7 +30,7 @@ import {
 } from "@/game/engine";
 import { cpuAction } from "@/game/cpu";
 import { setLastResult, setLastOnlineResult } from "@/game/store";
-import { GRADUATION_CREDITS, STARTING_CREDITS, Card } from "@/data/cards";
+import { GRADUATION_CREDITS, STARTING_CREDITS, TOTAL_TURNS, Card } from "@/data/cards";
 import { useOnlineGame } from "@/hooks/useOnlineGame";
 
 // ─── 素材 ────────────────────────────────────────────────────────────────────
@@ -66,6 +66,8 @@ const CAT_LABEL: Record<string, string> = {
 function effectLines(card: Card): string[] {
   const e = card.useEffect;
   const l: string[] = [];
+  if (e.selfBonus !== undefined && e.selfBonus !== 0) l.push(`自分${e.selfBonus > 0 ? "+" : ""}${e.selfBonus}単位`);
+  if (e.opponentBonus !== undefined && e.opponentBonus !== 0) l.push(`相手${e.opponentBonus > 0 ? "+" : ""}${e.opponentBonus}単位`);
   if (e.gamble) l.push(`50%で+${e.gamble.win} / 50%で${e.gamble.lose}単位`);
   if (e.drawCards) l.push(`${e.drawCards}枚ドロー`);
   if (e.extraActions) l.push(`行動回数+${e.extraActions}`);
@@ -141,27 +143,42 @@ function DeckPile({ count, w, h }: { count: number; w: number; h: number }) {
   );
 }
 
-function CreditBadge({ value, size = 120 }: { value: number; size?: number }) {
+function CreditBadge({ value, size = 120 }: { value: number | string; size?: number }) {
   // credit-badge.png: 1024×1536（縦長2:3）
   // contain で表示すると幅=0.667*size, 高さ=size の範囲に収まり、円は上41%付近に中心
-  const digits = String(value).length;
-  const fontSize = Math.round(size * (digits <= 1 ? 0.32 : digits === 2 ? 0.24 : 0.17));
-  const topOffset = Math.round(size * 0.41 - fontSize * 0.5);
+  const circleCenter = Math.round(size * 0.41);
+  const str = String(value);
+
+  // "単位+N" 形式は2行表示（上: 単位、下: +数字）
+  if (str.startsWith("単位")) {
+    const numPart = str.slice(2); // "+8" or "+?" or "+16"
+    const labelFs = Math.round(size * 0.15);
+    const numDigits = numPart.replace(/[^0-9\-]/g, "").length || 1;
+    const numFs = Math.round(size * (numDigits <= 2 ? 0.22 : 0.17));
+    const totalH = labelFs + 3 + numFs;
+    const startTop = circleCenter - totalH / 2;
+    return (
+      <View style={{ width: size, height: size }}>
+        <Image source={IMG_CREDIT} style={{ position: "absolute", width: size, height: size }} resizeMode="contain" />
+        <Text style={{ position: "absolute", left: 0, right: 0, top: startTop, textAlign: "center", fontWeight: "900", fontSize: labelFs, color: "#1a1a1a" }}>
+          単位
+        </Text>
+        <Text style={{ position: "absolute", left: 0, right: 0, top: startTop + labelFs + 3, textAlign: "center", fontWeight: "900", fontSize: numFs, color: "#1a1a1a" }}>
+          {numPart}
+        </Text>
+      </View>
+    );
+  }
+
+  // 通常の単一行表示
+  const digits = str.length;
+  const fontSize = Math.round(size * (digits <= 1 ? 0.32 : digits === 2 ? 0.24 : digits === 3 ? 0.19 : 0.15));
+  const topOffset = Math.round(circleCenter - fontSize * 0.5);
   return (
     <View style={{ width: size, height: size }}>
       <Image source={IMG_CREDIT} style={{ position: "absolute", width: size, height: size }} resizeMode="contain" />
-      <Text
-        style={{
-          position: "absolute",
-          left: 0, right: 0,
-          top: topOffset,
-          textAlign: "center",
-          fontWeight: "900",
-          fontSize,
-          color: "#1a1a1a",
-        }}
-      >
-        {value}
+      <Text style={{ position: "absolute", left: 0, right: 0, top: topOffset, textAlign: "center", fontWeight: "900", fontSize, color: "#1a1a1a" }}>
+        {str}
       </Text>
     </View>
   );
@@ -299,12 +316,14 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
 
   const pt = isPlayerTurn(state.turn);
   const canAct = pt && state.phase === "action";
-  const pCommit = STARTING_CREDITS + state.playerBonusCredits;
-  const cCommit = STARTING_CREDITS + state.cpuBonusCredits;
+  // 自分: 手札のkeepValue合計 + ボーナス単位（STARTING_CREDITS=0なので合算が実スコア）
+  const pKeep = state.playerHand.reduce((s, c) => s + c.keepValue, 0);
+  const pBonus = state.playerBonusCredits;
+  const cpuKeep = state.cpuHand.reduce((s, c) => s + c.keepValue, 0);
   const selected = sel !== null ? state.playerHand[sel] : null;
   const lastLog = state.log.length > 0 ? state.log[state.log.length - 1] : null;
   const myName = playerName || "あなた";
-  const turnLabel = pt ? `あなたのターン ${state.turn}/10` : `CPUのターン ${state.turn}/10`;
+  const turnLabel = pt ? `あなたのターン ${state.turn}/${TOTAL_TURNS}` : `CPUのターン ${state.turn}/${TOTAL_TURNS}`;
 
   useEffect(() => {
     if (state.phase === "action" && pt && state.playerHand.length > 0)
@@ -365,10 +384,10 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
             </Text>
             <TurnBadge text={turnLabel} width={turnW} />
           </View>
-          {/* 右: 単位数ラベル + バッジ */}
+          {/* 右: 単位数ラベル + バッジ（CPU確定単位は非表示） */}
           <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
-            <CreditBadge value={cCommit} size={opBadgeSize} />
+            <CreditBadge value={cpuKeep} size={opBadgeSize} />
+
           </View>
         </View>
       </View>
@@ -379,21 +398,15 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
         <DeckPile count={state.deck.length} w={cardW} h={cardH} />
       </View>
 
-      {/* ─── エフェクトログ ─── */}
-      {lastLog && (
-        <View style={{ alignItems: "center", paddingHorizontal: 16, paddingBottom: 4 }}>
-          <View style={{ borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: "rgba(0,0,0,0.55)" }}>
-            <Text style={{ fontSize: 12, color: "#F5E6C8", textAlign: "center" }} numberOfLines={1}>{lastLog}</Text>
-          </View>
-        </View>
-      )}
+
 
       {/* ─── 自分エリア ─── */}
       <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8 }}>
         {/* 左: 単位数ラベル + バッジ */}
         <View style={{ alignItems: "center" }}>
           <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>{myName}</Text>
-          <CreditBadge value={pCommit} size={myBadgeSize} />
+          <CreditBadge value={`${pKeep}+${pBonus}`} size={myBadgeSize} />
+
           {canAct && state.actionsRemaining > 1 && (
             <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(234,179,8,0.3)", marginTop: 4 }}>
               <Text style={{ fontWeight: "700", fontSize: 10, color: "#eab308" }}>残{state.actionsRemaining}回</Text>
@@ -443,7 +456,7 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
   const passW = Math.round(width * 0.34);
   const passH = Math.round(passW * 384 / 684);
 
-  const { game, isMyTurn, myHand, opponentHandCount, opponentCredits, timeLeft, loading, submitAction } = useOnlineGame(gameId, playerId);
+  const { game, isMyTurn, myHand, opponentHandCount, myExtraActions, timeLeft, loading, submitAction } = useOnlineGame(gameId, playerId);
   const [sel, setSel] = useState<number | null>(null);
   const [flash, setFlash] = useState(false);
 
@@ -453,8 +466,9 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
     const myH = isP1 ? game.player1Hand : game.player2Hand;
     const oppH = isP1 ? game.player2Hand : game.player1Hand;
     const myBonus = isP1 ? game.player1BonusCredits : game.player2BonusCredits;
+    const oppBonus = isP1 ? game.player2BonusCredits : game.player1BonusCredits;
     const myC = STARTING_CREDITS + myH.reduce((s, c) => s + c.keepValue, 0) + myBonus;
-    const oppC = STARTING_CREDITS + oppH.reduce((s, c) => s + c.keepValue, 0);
+    const oppC = STARTING_CREDITS + oppH.reduce((s, c) => s + c.keepValue, 0) + oppBonus;
     setLastOnlineResult({ myCredits: myC, opponentCredits: oppC, myName: "あなた", opponentName, won: game.winnerId === playerId, myGraduated: myC >= GRADUATION_CREDITS, opponentGraduated: oppC >= GRADUATION_CREDITS });
     const t = setTimeout(() => router.replace("/battle-result?mode=online"), 800);
     return () => clearTimeout(t);
@@ -470,8 +484,11 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
 
   const selected = sel !== null ? myHand[sel] : null;
   const timerColor = timeLeft > 30 ? "#D4C4A0" : timeLeft > 10 ? "#d97706" : "#dc2626";
-  const myB = game.player1Id === playerId ? game.player1BonusCredits : game.player2BonusCredits;
-  const commit = STARTING_CREDITS + myB;
+  const isP1 = game.player1Id === playerId;
+  const myB = isP1 ? game.player1BonusCredits : game.player2BonusCredits;
+  const myKeep = (myHand as Card[]).reduce((s, c) => s + c.keepValue, 0);
+  const oppHand = isP1 ? game.player2Hand : game.player1Hand;
+  const oppKeep = (oppHand as Card[]).reduce((s, c) => s + c.keepValue, 0);
 
   return (
     <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
@@ -488,11 +505,16 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
           <View>
             <Text style={{ fontSize: 11, color: "#D4C4A0", fontWeight: "700", marginBottom: 3 }}>{opponentName}</Text>
-            <TurnBadge text={`ターン数 ${game.currentTurn}/10`} width={turnW} />
+            <TurnBadge text={`ターン数 ${game.currentTurn}/${TOTAL_TURNS}`} width={turnW} />
           </View>
           <View style={{ alignItems: "center" }}>
             <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
-            <CreditBadge value={opponentCredits} size={opBadgeSize} />
+            <CreditBadge value="単位+?" size={opBadgeSize} />
+            {oppKeep > 0 && (
+              <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(160,128,80,0.35)", marginTop: 3 }}>
+                <Text style={{ fontWeight: "700", fontSize: 10, color: "#F5E6C8" }}>+{oppKeep} ボーナス</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -510,7 +532,17 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
       <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8 }}>
         <View style={{ alignItems: "center" }}>
           <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
-          <CreditBadge value={commit} size={myBadgeSize} />
+          <CreditBadge value={`${myKeep}+${myB}`} size={myBadgeSize} />
+          {myKeep > 0 && (
+            <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(160,128,80,0.35)", marginTop: 3 }}>
+              <Text style={{ fontWeight: "700", fontSize: 11, color: "#F5E6C8" }}>+{myKeep} ボーナス</Text>
+            </View>
+          )}
+          {(myExtraActions ?? 0) > 0 && (
+            <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(234,179,8,0.3)", marginTop: 4 }}>
+              <Text style={{ fontWeight: "700", fontSize: 10, color: "#eab308" }}>残{myExtraActions}回</Text>
+            </View>
+          )}
         </View>
         <View style={{ flex: 1 }} />
         {isMyTurn && (

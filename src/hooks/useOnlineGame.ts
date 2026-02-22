@@ -92,16 +92,30 @@ export function useOnlineGame(gameId: string, playerId: string) {
     game.status === "playing" &&
     (game.currentTurn % 2 === 1 ? isPlayer1 : !isPlayer1);
 
-  // 今ターンのドローカード（自分のターン時のみ）
+  // extraActions と skipDraw の状態
+  const myExtraActions = isPlayer1
+    ? (game.player1ExtraActions ?? 0)
+    : (game.player2ExtraActions ?? 0);
+  const mySkipDraw = isPlayer1
+    ? (game.player1SkipDraw ?? false)
+    : (game.player2SkipDraw ?? false);
+
+  // 今ターンのドローカード（自分のターン・通常ドロー時のみプレビュー表示）
+  // extraAction中 or skipDraw中はサーバー側でドロー済みのため不要
   let drawnCard: Card | null = null;
-  if (isMyTurn) {
+  const baseMyHand = isPlayer1 ? game.player1Hand : game.player2Hand;
+
+  if (isMyTurn && !mySkipDraw && myExtraActions === 0) {
     const deck = createDeckWithSeed(game.deckSeed);
-    drawnCard = deck[game.currentTurn - 1] ?? null;
+    const candidate = deck[game.currentTurn - 1] ?? null;
+    // Firestoreの手札にすでに含まれていれば重複させない
+    if (candidate && !baseMyHand.some((c) => c.uid === candidate.uid)) {
+      drawnCard = candidate;
+    }
   }
 
-  // 手札：Firestoreから取得した配列 + 今ターンのドローカード（自分ターン時）
-  const baseMyHand = isPlayer1 ? game.player1Hand : game.player2Hand;
-  const myHand: Card[] = isMyTurn && drawnCard
+  // 手札：Firestoreから取得した配列 + 今ターンのドローカードプレビュー
+  const myHand: Card[] = drawnCard
     ? [...baseMyHand, drawnCard]
     : baseMyHand;
 
@@ -117,6 +131,7 @@ export function useOnlineGame(gameId: string, playerId: string) {
     myCredits: computeCredits(myHand, myBonus),
     opponentCredits: computeCredits(opponentHand, opponentBonus),
     drawnCard: isMyTurn ? drawnCard : null,
+    myExtraActions,
     timeLeft,
     loading,
     submitAction: handleSubmit,

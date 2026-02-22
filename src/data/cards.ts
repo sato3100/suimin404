@@ -139,9 +139,9 @@ export const CARD_DEFS: CardDef[] = [
 export const DECK_COMPOSITION: { cardId: string; count: number }[] =
   CARD_DEFS.map((d) => ({ cardId: d.id, count: 2 }));
 
-export const STARTING_CREDITS = 24;
-export const GRADUATION_CREDITS = 124;
-export const TOTAL_TURNS = 10;
+export const STARTING_CREDITS = 0;
+export const GRADUATION_CREDITS = 100;
+export const TOTAL_TURNS = 20;
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];
