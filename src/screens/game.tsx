@@ -12,6 +12,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSound } from "./_layout"; // ★ 追加
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -286,6 +287,8 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
   const cardH = cardW * 1.4;
   const miniW = width * 0.17;
   const miniH = miniW * 1.4;
+  const badgeSize = 110;
+  const { playGameBtnSound, playDrawSound, playAttackSound, playCreditSound } = useSound();//効果音
   const myBadgeSize = Math.round(width * 0.44);
   const opBadgeSize = Math.round(width * 0.32);
   const turnW = Math.round(width * 0.55);
@@ -307,9 +310,14 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
   const turnLabel = pt ? `あなたのターン ${state.turn}/10` : `CPUのターン ${state.turn}/10`;
 
   useEffect(() => {
-    if (state.phase === "action" && pt && state.playerHand.length > 0)
+    if (state.phase === "action" && pt && state.playerHand.length > 0) {
       setDrawn(state.playerHand[state.playerHand.length - 1]);
-    else setDrawn(null);
+        playDrawSound();
+    } else {
+      setDrawn(null);
+    }
+    
+    // 依存配列に length を追加することで、枚数が変わった瞬間にこのEffectが再走ります
   }, [state.turn, state.phase, state.playerHand.length]);
 
   useEffect(() => {
@@ -337,11 +345,28 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
   }, [state.phase, state.turn, pt]);
 
   const onUse = useCallback((idx: number) => {
+    const cardToUse = state.playerHand[idx];
+    
+    // カードの効果に「相手へのマイナス（または自分のプラス以外）」があれば攻撃音、それ以外（回復など）なら単位ゲット音
+    if (cardToUse && cardToUse.useEffect) {
+      // ※ここはご自身のカードデータの構造に合わせて調整してください。
+      // 例: 相手への効果がある or 攻撃（マイナス）カテゴリなら攻撃音
+      if (cardToUse.useEffect.opponentBonus || cardToUse.category === "minus") {
+        playAttackSound();
+      } else {
+        playCreditSound(); // 回復・ドロー・自分プラスなどはこっち
+      }
+    } else {
+      playAttackSound(); // 万が一判定できない時のデフォルト
+    }
+
     setFlash(true); setTimeout(() => setFlash(false), 300);
     setState((s) => useCard(s, idx)); setSel(null);
-  }, []);
+  }, [state.playerHand]);
 
-  const onPass = useCallback(() => { setState((s) => passTurn(s)); setSel(null); }, []);
+  const onPass = useCallback(() => { 
+    playGameBtnSound();
+    setState((s) => passTurn(s)); setSel(null); }, []);
 
   return (
     <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
@@ -418,7 +443,7 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
       <View className="px-2 pt-2" style={{ paddingBottom: insets.bottom + 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
           {state.playerHand.map((c, i) => (
-            <HandCard key={c.uid} card={c} isSelected={sel === i} disabled={!canAct} onPress={() => canAct && setSel(sel === i ? null : i)} w={cardW} h={cardH} />
+            <HandCard key={c.uid} card={c} isSelected={sel === i} disabled={!canAct} onPress={() => { playGameBtnSound(); if (canAct) setSel(sel === i ? null : i); }} w={cardW} h={cardH} />
           ))}
         </ScrollView>
       </View>
@@ -442,6 +467,8 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
   const turnW = Math.round(width * 0.55);
   const passW = Math.round(width * 0.34);
   const passH = Math.round(passW * 384 / 684);
+
+  const { playGameBtnSound, playDrawSound, playAttackSound, playCreditSound } = useSound();
 
   const { game, isMyTurn, myHand, opponentHandCount, opponentCredits, timeLeft, loading, submitAction } = useOnlineGame(gameId, playerId);
   const [sel, setSel] = useState<number | null>(null);
@@ -515,7 +542,8 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
         <View style={{ flex: 1 }} />
         {isMyTurn && (
           <Pressable
-            onPress={() => { submitAction({ type: "pass" }); setSel(null); }}
+
+            onPress={() => { playCreditSound(); submitAction({ type: "pass" }); setSel(null); }}
             style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }], marginBottom: 4 })}
           >
             <View style={{ alignItems: "center", justifyContent: "center", width: passW, height: passH }}>
@@ -530,16 +558,26 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
       <View className="px-2 pt-2" style={{ paddingBottom: insets.bottom + 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
           {(myHand as Card[]).map((c, i) => (
-            <HandCard key={c.uid} card={c} isSelected={sel === i} disabled={!isMyTurn} onPress={() => isMyTurn && setSel(sel === i ? null : i)} w={cardW} h={cardH} />
+            <HandCard key={c.uid} card={c} isSelected={sel === i} disabled={!isMyTurn} onPress={() => { playGameBtnSound(); if (isMyTurn) setSel(sel === i ? null : i); }} w={cardW} h={cardH} />
           ))}
         </ScrollView>
       </View>
 
       <CardDetailPopup
         card={selected} visible={selected !== null}
-        onUse={() => { if (sel !== null) { setFlash(true); setTimeout(() => setFlash(false), 300); submitAction({ type: "use", cardIndex: sel }); setSel(null); } }}
-        onKeep={() => { submitAction({ type: "pass" }); setSel(null); }}
-        onClose={() => setSel(null)}
+        onUse={() => { if (sel !== null) {
+          if (sel !== null && selected) {
+            if (selected?.useEffect?.opponentBonus || selected?.category === "minus") {
+              playAttackSound();
+            } else {
+              playCreditSound();
+            }
+          }
+          setFlash(true); setTimeout(() => setFlash(false), 300); 
+          submitAction({ type: "use", cardIndex: sel }); 
+          setSel(null); } }}
+        onKeep={() => { playCreditSound(); submitAction({ type: "pass" }); setSel(null); }}
+        onClose={() => { playGameBtnSound(); setSel(null); }}
       />
     </ImageBackground>
   );
@@ -551,6 +589,14 @@ export default function GameScreen() {
   const { mode, gameId, playerId, opponentName, playerName } = useLocalSearchParams<{
     mode?: string; gameId?: string; playerId?: string; opponentName?: string; playerName?: string;
   }>();
+
+  //ContextからバトルBGM再生用の関数をもらう
+  const { playBattleBgm } = useSound();
+
+  //この画面（ゲーム画面）が表示された時にバトルBGMに切り替える
+  useEffect(() => {
+    playBattleBgm();
+  }, []);
 
   if (mode === "online" && gameId && playerId)
     return <OnlineGameScreen gameId={gameId} playerId={playerId} opponentName={opponentName ?? "相手"} />;

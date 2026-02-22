@@ -68,6 +68,7 @@ export default function NameScreen() {
             style={{ width: inputW, aspectRatio: 2.6 }}
           >
             <Image
+
               source={require("@/assets/images/game/turn-badge.png")}
               className="absolute w-full h-full"
               resizeMode="contain"
