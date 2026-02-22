@@ -267,13 +267,13 @@ export function determineResult(state: GameState): GameResult {
   if (playerCredits === GRADUATION_CREDITS) {
     ending = "perfect";
     endingTitle = "伝説の省エネ卒業";
-  } else if (playerCredits >= 131) {
+  } else if (playerCredits >= 107) {
     ending = "nerd";
     endingTitle = "ガリ勉・友達ゼロ";
   } else if (playerGrad) {
     ending = "graduate";
     endingTitle = "卒業";
-  } else if (playerCredits >= 94) {
+  } else if (playerCredits >= 76) {
     ending = "repeat";
     endingTitle = "留年";
   } else {
