@@ -26,7 +26,7 @@ export interface Card extends CardDef {
 export const CARD_DEFS: CardDef[] = [
   // ─── 安定系 ────────────────────────────────────────────────────────────────
   {
-    id: "clone_thesis",
+    id: "soturon",
     name: "卒論複製",
     keepValue: 12,
     useEffect: { selfBonus: 24, skipNextDraw: true },
@@ -50,7 +50,7 @@ export const CARD_DEFS: CardDef[] = [
     category: "stable",
   },
   {
-    id: "native_helper",
+    id: "native",
     name: "助っ人ネイティブ",
     keepValue: 7,
     useEffect: { selfBonus: 10 },
@@ -58,7 +58,7 @@ export const CARD_DEFS: CardDef[] = [
     category: "stable",
   },
   {
-    id: "sit_in",
+    id: "suwarikomi",
     name: "座り込み出席",
     keepValue: 6,
     useEffect: { selfBonus: 8, extraActions: 1 },
@@ -68,7 +68,7 @@ export const CARD_DEFS: CardDef[] = [
 
   // ─── マイナス系 ────────────────────────────────────────────────────────────
   {
-    id: "oversleep",
+    id: "bakusui",
     name: "爆睡",
     keepValue: 8,
     useEffect: { selfBonus: 0, extraActions: 1 },
@@ -76,7 +76,7 @@ export const CARD_DEFS: CardDef[] = [
     category: "minus",
   },
   {
-    id: "planned_nap",
+    id: "hirune",
     name: "計画的昼寝",
     keepValue: 10,
     useEffect: { selfBonus: 5, drawCards: 1 },
@@ -84,7 +84,7 @@ export const CARD_DEFS: CardDef[] = [
     category: "minus",
   },
   {
-    id: "flame",
+    id: "enjo",
     name: "大炎上",
     keepValue: 5,
     useEffect: { selfBonus: -10 },
