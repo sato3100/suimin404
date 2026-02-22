@@ -30,22 +30,22 @@ const IMG_REPEAT_LOSE = require("@/assets/images/対戦終了_留年_敗北.png"
 
 // ─── 結果画像選択 ───────────────────────────────────────────────────────────
 function getResultImage(credits: number, won: boolean) {
-  if (credits >= 124) {
+  if (credits >= 100) {
     return won ? IMG_GRADUATE_WIN : IMG_GRADUATE_LOSE;
   }
-  if (credits >= 94) {
+  if (credits >= 76) {
     return won ? IMG_REPEAT_WIN : IMG_REPEAT_LOSE;
   }
-  // 中退（94未満）は留年_敗北画像を使用
+  // 中退（76未満）は留年_敗北画像を使用
   return IMG_REPEAT_LOSE;
 }
 
 // ─── エンディングラベル判定 ──────────────────────────────────────────────────
 function getEndingLabel(credits: number): string {
-  if (credits === 124) return "伝説の省エネ卒業";
-  if (credits >= 131) return "ガリ勉";
-  if (credits >= 124) return "卒業";
-  if (credits >= 94) return "留年";
+  if (credits === 100) return "伝説の省エネ卒業";
+  if (credits >= 107) return "ガリ勉";
+  if (credits >= 100) return "卒業";
+  if (credits >= 76) return "留年";
   return "中退";
 }
 

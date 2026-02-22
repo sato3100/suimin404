@@ -135,13 +135,14 @@ export const CARD_DEFS: CardDef[] = [
   },
 ];
 
-// デッキ構成：各カード2枚 = 26枚
+// デッキ構成：各カード3枚 = 39枚
+// deck[0..19]: ターンドロー用, deck[20..32]: extraDraw用, deck[33..38]: 初期手札用
 export const DECK_COMPOSITION: { cardId: string; count: number }[] =
-  CARD_DEFS.map((d) => ({ cardId: d.id, count: 2 }));
+  CARD_DEFS.map((d) => ({ cardId: d.id, count: 3 }));
 
 export const STARTING_CREDITS = 24;
-export const GRADUATION_CREDITS = 124;
-export const TOTAL_TURNS = 10;
+export const GRADUATION_CREDITS = 100;
+export const TOTAL_TURNS = 20;
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];

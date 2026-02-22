@@ -31,7 +31,7 @@ import {
 } from "@/game/engine";
 import { cpuAction } from "@/game/cpu";
 import { setLastResult, setLastOnlineResult } from "@/game/store";
-import { GRADUATION_CREDITS, STARTING_CREDITS, Card } from "@/data/cards";
+import { GRADUATION_CREDITS, STARTING_CREDITS, TOTAL_TURNS, Card } from "@/data/cards";
 import { useOnlineGame } from "@/hooks/useOnlineGame";
 
 // ─── 素材 ────────────────────────────────────────────────────────────────────
@@ -63,10 +63,12 @@ const CAT_LABEL: Record<string, string> = {
   chaos: "混沌系",
 };
 
-// ─── 効果テキスト ────────────────────────────────────────────────────────────
+// ─── カード使用効果テキスト ──────────────────────────────────────────────────
 function effectLines(card: Card): string[] {
   const e = card.useEffect;
   const l: string[] = [];
+  if (e.selfBonus !== undefined && e.selfBonus !== 0) l.push(`自分${e.selfBonus > 0 ? "+" : ""}${e.selfBonus}単位`);
+  if (e.opponentBonus !== undefined && e.opponentBonus !== 0) l.push(`相手${e.opponentBonus > 0 ? "+" : ""}${e.opponentBonus}単位`);
   if (e.gamble) l.push(`50%で+${e.gamble.win} / 50%で${e.gamble.lose}単位`);
   if (e.drawCards) l.push(`${e.drawCards}枚ドロー`);
   if (e.extraActions) l.push(`行動回数+${e.extraActions}`);
@@ -121,11 +123,7 @@ function FieldCard({ card, cardW, cardH }: { card: Card | null; cardW: number; c
 
   return (
     <Animated.View style={[{ width: cardW, height: cardH, borderRadius: 10, overflow: "hidden" }, anim]}>
-      <Image
-        source={CARD_IMAGES[card.id] ?? IMG_CARD}
-        style={{ width: cardW, height: cardH }}
-        resizeMode="cover"
-      />
+      <Image source={CARD_IMAGES[card.id] ?? IMG_CARD} style={{ width: cardW, height: cardH }} resizeMode="cover" />
     </Animated.View>
   );
 }
@@ -142,27 +140,27 @@ function DeckPile({ count, w, h }: { count: number; w: number; h: number }) {
   );
 }
 
-function CreditBadge({ value, size = 120 }: { value: number; size?: number }) {
-  // credit-badge.png: 1024×1536（縦長2:3）
-  // contain で表示すると幅=0.667*size, 高さ=size の範囲に収まり、円は上41%付近に中心
-  const digits = String(value).length;
-  const fontSize = Math.round(size * (digits <= 1 ? 0.32 : digits === 2 ? 0.24 : 0.17));
-  const topOffset = Math.round(size * 0.41 - fontSize * 0.5);
+// 単位バッジ: "{確定単位}+{ボーナス or ?}" の形式で2行表示
+function CreditBadge({ credits, bonus, size = 120 }: { credits: number | string; bonus: number | "?"; size?: number }) {
+  const circleCenter = Math.round(size * 0.41);
+  const creditStr = String(credits);
+  const bonusStr = bonus === "?" ? "?" : bonus >= 0 ? `+${bonus}` : `${bonus}`;
+
+  const creditDigits = creditStr.replace(/[^0-9]/g, "").length || 1;
+  const bonusDigits = bonusStr.replace(/[^0-9]/g, "").length || 1;
+  const creditFs = Math.round(size * (creditDigits <= 2 ? 0.22 : 0.17));
+  const bonusFs = Math.round(size * (bonusDigits <= 2 ? 0.19 : 0.14));
+  const totalH = creditFs + 2 + bonusFs;
+  const startTop = circleCenter - totalH / 2;
+
   return (
     <View style={{ width: size, height: size }}>
       <Image source={IMG_CREDIT} style={{ position: "absolute", width: size, height: size }} resizeMode="contain" />
-      <Text
-        style={{
-          position: "absolute",
-          left: 0, right: 0,
-          top: topOffset,
-          textAlign: "center",
-          fontWeight: "900",
-          fontSize,
-          color: "#1a1a1a",
-        }}
-      >
-        {value}
+      <Text style={{ position: "absolute", left: 0, right: 0, top: startTop, textAlign: "center", fontWeight: "900", fontSize: creditFs, color: "#1a1a1a" }}>
+        {creditStr}
+      </Text>
+      <Text style={{ position: "absolute", left: 0, right: 0, top: startTop + creditFs + 2, textAlign: "center", fontWeight: "900", fontSize: bonusFs, color: "#3a2a0a" }}>
+        {bonusStr}
       </Text>
     </View>
   );
@@ -209,11 +207,7 @@ function HandCard({ card, isSelected, onPress, disabled, w, h }: {
           anim,
         ]}
       >
-        <Image
-          source={CARD_IMAGES[card.id] ?? IMG_CARD}
-          style={{ width: w, height: h }}
-          resizeMode="cover"
-        />
+        <Image source={CARD_IMAGES[card.id] ?? IMG_CARD} style={{ width: w, height: h }} resizeMode="cover" />
       </Animated.View>
     </Pressable>
   );
@@ -237,14 +231,12 @@ function CardDetailPopup({ card, visible, onUse, onKeep, onClose }: {
           style={{ maxWidth: 320, backgroundColor: "#2A1F14", borderWidth: 2, borderColor: "#A08050" }}
           onPress={(e) => e.stopPropagation()}
         >
-          {/* カテゴリタグ */}
           <View className="rounded-full px-3 py-1 mb-2" style={{ backgroundColor: CAT_BG[card.category] }}>
             <Text className="text-white font-bold" style={{ fontSize: 11 }}>{CAT_LABEL[card.category]}</Text>
           </View>
           <Text className="font-black" style={{ fontSize: 22, color: "#F5E6C8" }}>{card.name}</Text>
           <Text className="text-center mt-2" style={{ fontSize: 13, color: "#D4C4A0", lineHeight: 20 }}>{card.description}</Text>
 
-          {/* ステータス */}
           <View className="flex-row justify-center mt-4 mb-2" style={{ gap: 20 }}>
             <View className="items-center">
               <Text style={{ fontSize: 11, color: "#8B7355" }}>キープ値</Text>
@@ -253,13 +245,15 @@ function CardDetailPopup({ card, visible, onUse, onKeep, onClose }: {
             <View style={{ width: 1, backgroundColor: "#A08050" }} />
             <View className="items-center">
               <Text style={{ fontSize: 11, color: "#8B7355" }}>使用効果</Text>
-              {lines.map((l, i) => (
-                <Text key={i} className="font-bold mt-0.5" style={{ fontSize: 12, color: "#eab308" }}>{l}</Text>
-              ))}
+              {lines.length > 0
+                ? lines.map((l, i) => (
+                    <Text key={i} className="font-bold mt-0.5" style={{ fontSize: 12, color: "#eab308" }}>{l}</Text>
+                  ))
+                : <Text style={{ fontSize: 12, color: "#8B7355" }}>なし</Text>
+              }
             </View>
           </View>
 
-          {/* ボタン */}
           <View className="flex-row w-full mt-4" style={{ gap: 12 }}>
             <Pressable onPress={onUse} className="flex-1 rounded-xl py-3.5 items-center" style={{ backgroundColor: "#dc2626" }}>
               <Text className="text-white font-bold" style={{ fontSize: 16 }}>使う</Text>
@@ -302,12 +296,20 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
 
   const pt = isPlayerTurn(state.turn);
   const canAct = pt && state.phase === "action";
-  const pCommit = STARTING_CREDITS + state.playerBonusCredits;
-  const cCommit = STARTING_CREDITS + state.cpuBonusCredits;
+
+  // 自分: 確定単位 = 初期24 + カード使用ボーナス / ボーナス = 手札keepValue合計
+  const pBonus = state.playerBonusCredits;
+  const pCredits = STARTING_CREDITS + pBonus;
+  const pKeep = state.playerHand.reduce((s, c) => s + c.keepValue, 0);
+
+  // 相手: 確定単位 = 初期24 + CPUカード使用ボーナス / ボーナスは?で非表示
+  const cpuBonus = state.cpuBonusCredits;
+  const cpuCredits = STARTING_CREDITS + cpuBonus;
+
   const selected = sel !== null ? state.playerHand[sel] : null;
   const lastLog = state.log.length > 0 ? state.log[state.log.length - 1] : null;
   const myName = playerName || "あなた";
-  const turnLabel = pt ? `あなたのターン ${state.turn}/10` : `CPUのターン ${state.turn}/10`;
+  const turnLabel = pt ? `あなたのターン ${state.turn}/${TOTAL_TURNS}` : `CPUのターン ${state.turn}/${TOTAL_TURNS}`;
 
   useEffect(() => {
     if (state.phase === "action" && pt && state.playerHand.length > 0) {
@@ -381,19 +383,16 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
             <FaceDownCard key={i} visible={state.cpuHand.length > 0} w={miniW} h={miniH} />
           ))}
         </View>
-        {/* 相手名前 + ターン + 単位数 */}
+        {/* 名前 + ターン + 単位数バッジ */}
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
-          {/* 左: 名前 + ターン数バッジ */}
           <View>
-            <Text style={{ fontSize: 11, color: "#D4C4A0", fontWeight: "700", marginBottom: 3 }}>
-              CPU
-            </Text>
+            <Text style={{ fontSize: 11, color: "#D4C4A0", fontWeight: "700", marginBottom: 3 }}>CPU</Text>
             <TurnBadge text={turnLabel} width={turnW} />
           </View>
-          {/* 右: 単位数ラベル + バッジ */}
+          {/* 相手: 確定単位 + ?（ボーナス非表示） */}
           <View style={{ alignItems: "center" }}>
             <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
-            <CreditBadge value={cCommit} size={opBadgeSize} />
+            <CreditBadge credits={cpuCredits} bonus="?" size={opBadgeSize} />
           </View>
         </View>
       </View>
@@ -415,10 +414,10 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
 
       {/* ─── 自分エリア ─── */}
       <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8 }}>
-        {/* 左: 単位数ラベル + バッジ */}
         <View style={{ alignItems: "center" }}>
           <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>{myName}</Text>
-          <CreditBadge value={pCommit} size={myBadgeSize} />
+          {/* 自分: 確定単位 + 手札keepValue合計（ボーナス） */}
+          <CreditBadge credits={pCredits} bonus={pKeep} size={myBadgeSize} />
           {canAct && state.actionsRemaining > 1 && (
             <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(234,179,8,0.3)", marginTop: 4 }}>
               <Text style={{ fontWeight: "700", fontSize: 10, color: "#eab308" }}>残{state.actionsRemaining}回</Text>
@@ -426,7 +425,6 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
           )}
         </View>
         <View style={{ flex: 1 }} />
-        {/* 右: パスボタン or 相手ターン表示 */}
         {canAct ? (
           <Pressable onPress={onPass} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }], marginBottom: 4 })}>
             <View style={{ alignItems: "center", justifyContent: "center", width: passW, height: passH }}>
@@ -470,7 +468,7 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
 
   const { playGameBtnSound, playDrawSound, playAttackSound, playCreditSound } = useSound();
 
-  const { game, isMyTurn, myHand, opponentHandCount, opponentCredits, timeLeft, loading, submitAction } = useOnlineGame(gameId, playerId);
+  const { game, isMyTurn, myHand, opponentHandCount, myExtraActions, timeLeft, loading, submitAction } = useOnlineGame(gameId, playerId);
   const [sel, setSel] = useState<number | null>(null);
   const [flash, setFlash] = useState(false);
 
@@ -480,8 +478,9 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
     const myH = isP1 ? game.player1Hand : game.player2Hand;
     const oppH = isP1 ? game.player2Hand : game.player1Hand;
     const myBonus = isP1 ? game.player1BonusCredits : game.player2BonusCredits;
+    const oppBonus = isP1 ? game.player2BonusCredits : game.player1BonusCredits;
     const myC = STARTING_CREDITS + myH.reduce((s, c) => s + c.keepValue, 0) + myBonus;
-    const oppC = STARTING_CREDITS + oppH.reduce((s, c) => s + c.keepValue, 0);
+    const oppC = STARTING_CREDITS + oppH.reduce((s, c) => s + c.keepValue, 0) + oppBonus;
     setLastOnlineResult({ myCredits: myC, opponentCredits: oppC, myName: "あなた", opponentName, won: game.winnerId === playerId, myGraduated: myC >= GRADUATION_CREDITS, opponentGraduated: oppC >= GRADUATION_CREDITS });
     const t = setTimeout(() => router.replace("/battle-result?mode=online"), 800);
     return () => clearTimeout(t);
@@ -497,15 +496,22 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
 
   const selected = sel !== null ? myHand[sel] : null;
   const timerColor = timeLeft > 30 ? "#D4C4A0" : timeLeft > 10 ? "#d97706" : "#dc2626";
-  const myB = game.player1Id === playerId ? game.player1BonusCredits : game.player2BonusCredits;
-  const commit = STARTING_CREDITS + myB;
+
+  const isP1 = game.player1Id === playerId;
+  // 自分: 確定単位 = 初期24 + ボーナス / ボーナス = 手札keepValue合計
+  const myB = isP1 ? game.player1BonusCredits : game.player2BonusCredits;
+  const myCredits = STARTING_CREDITS + myB;
+  const myKeep = (myHand as Card[]).reduce((s, c) => s + c.keepValue, 0);
+  // 相手: 確定単位 = 初期24 + ボーナス / ボーナスは?で非表示
+  const oppB = isP1 ? game.player2BonusCredits : game.player1BonusCredits;
+  const oppCredits = STARTING_CREDITS + oppB;
 
   return (
     <ImageBackground source={BG} className="flex-1" resizeMode="cover" style={{ backgroundColor: "#1a1008" }}>
       <StatusBar style="light" />
       <BattleFlash visible={flash} />
 
-      {/* 相手 */}
+      {/* ─── 相手エリア ─── */}
       <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 6 }}>
         <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 8, gap: 6 }}>
           {Array.from({ length: opponentHandCount || 3 }).map((_, i) => (
@@ -514,17 +520,18 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
         </View>
         <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
           <View>
-            <Text style={{ fontSize: 11, color: "#D4C4A0", fontWeight: "700", marginBottom: 3 }}>{opponentName}</Text>
-            <TurnBadge text={`ターン数 ${game.currentTurn}/10`} width={turnW} />
+            <Text style={{ fontSize: 10, color: "#D4C4A0", fontWeight: "900", marginBottom: 5 }}>{opponentName}</Text>
+            <TurnBadge text={`ターン数 ${game.currentTurn}/${TOTAL_TURNS}`} width={turnW} />
           </View>
+          {/* 相手: 確定単位 + ?（ボーナス非表示） */}
           <View style={{ alignItems: "center" }}>
             <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
-            <CreditBadge value={opponentCredits} size={opBadgeSize} />
+            <CreditBadge credits={oppCredits} bonus="?" size={opBadgeSize} />
           </View>
         </View>
       </View>
 
-      {/* タイマー */}
+      {/* ─── タイマー ─── */}
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         {isMyTurn ? (
           <Text style={{ fontWeight: "900", fontSize: 32, color: timerColor }}>{timeLeft}s</Text>
@@ -533,11 +540,17 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
         )}
       </View>
 
-      {/* 自分 */}
+      {/* ─── 自分エリア ─── */}
       <View style={{ flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8 }}>
         <View style={{ alignItems: "center" }}>
           <Text style={{ fontSize: 11, color: "#D4C4A0", marginBottom: 2 }}>単位数</Text>
-          <CreditBadge value={commit} size={myBadgeSize} />
+          {/* 自分: 確定単位 + 手札keepValue合計（ボーナス） */}
+          <CreditBadge credits={myCredits} bonus={myKeep} size={myBadgeSize} />
+          {(myExtraActions ?? 0) > 0 && (
+            <View style={{ borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: "rgba(234,179,8,0.3)", marginTop: 4 }}>
+              <Text style={{ fontWeight: "700", fontSize: 10, color: "#eab308" }}>残{myExtraActions}回</Text>
+            </View>
+          )}
         </View>
         <View style={{ flex: 1 }} />
         {isMyTurn && (
@@ -554,7 +567,7 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
         )}
       </View>
 
-      {/* 手札 */}
+      {/* ─── 手札 ─── */}
       <View className="px-2 pt-2" style={{ paddingBottom: insets.bottom + 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
           {(myHand as Card[]).map((c, i) => (
