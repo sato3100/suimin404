@@ -142,9 +142,9 @@ function DeckPile({ count, w, h }: { count: number; w: number; h: number }) {
 function CreditBadge({ value, bonus, size = 100 }: { value: number; bonus: number; size?: number }) {
   return (
     <View className="items-center justify-center" style={{ width: size, height: size }}>
-      <Image source={IMG_CREDIT} className="absolute" style={{ width: size, height: size }} resizeMode="contain" />
+      <Image source={IMG_CREDIT} className="absolute" style={{ width: size * 2, height: size * 2 }} resizeMode="contain" />
       <View className="flex-row items-baseline">
-        <Text className="font-black" style={{ fontSize: size * 0.32, color: "#1a1a1a" }}>{value}</Text>
+        <Text className="font-black" style={{ fontSize: size * 0.28, color: "#1a1a1a" }}>{value}</Text>
         {bonus > 0 && <Text className="font-bold" style={{ fontSize: size * 0.16, color: "#5a4020" }}>+{bonus}</Text>}
       </View>
     </View>
@@ -153,9 +153,9 @@ function CreditBadge({ value, bonus, size = 100 }: { value: number; bonus: numbe
 
 function TurnBadge({ text, width: w }: { text: string; width: number }) {
   return (
-    <View className="items-center justify-center" style={{ width: w, height: w * 0.36 }}>
+    <View className="items-center justify-center" style={{ width: w*1.1, height: w * 0.8 }}>
       <Image source={IMG_TURN} className="absolute w-full h-full" resizeMode="contain" />
-      <Text className="font-black" style={{ fontSize: 14, color: "#2a1a0a" }}>{text}</Text>
+      <Text className="font-black" style={{ fontSize: 20, color: "#2a1a0a" }}>{text}</Text>
     </View>
   );
 }
@@ -374,7 +374,7 @@ function CpuGameScreen({ playerName }: { playerName: string }) {
         <View className="flex-1" />
         {canAct && (
           <Pressable onPress={onPass} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] })}>
-            <View className="items-center justify-center" style={{ width: 130, height: 56 }}>
+            <View className="items-center justify-center" style={{ width: 130, height: 76 }}>
               <Image source={IMG_PASS} className="absolute w-full h-full" resizeMode="contain" />
               <Text className="font-black" style={{ fontSize: 18, color: "#2a1a0a" }}>パス</Text>
             </View>
@@ -488,7 +488,7 @@ function OnlineGameScreen({ gameId, playerId, opponentName }: { gameId: string; 
             onPress={() => { submitAction({ type: "pass" }); setSel(null); }}
             style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] })}
           >
-            <View className="items-center justify-center" style={{ width: 130, height: 56 }}>
+            <View className="items-center justify-center" style={{ width: 30, height: 56 }}>
               <Image source={IMG_PASS} className="absolute w-full h-full" resizeMode="contain" />
               <Text className="font-black" style={{ fontSize: 18, color: "#2a1a0a" }}>パス</Text>
             </View>
