@@ -65,7 +65,7 @@ export default function RootLayout() {
       const { sound } = await Audio.Sound.createAsync(
         require("../assets/sounds/click.mp3") // ※ファイル名は適宜変更してください
       );
-      await sound.setVolumeAsync(0.4);
+      await sound.setVolumeAsync(0.1);
       await sound.playAsync();
       
       // 再生が終わったら自動でメモリから消す
