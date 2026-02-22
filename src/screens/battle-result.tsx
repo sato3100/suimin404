@@ -19,6 +19,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { getLastResult, getLastOnlineResult } from "@/game/store";
+import { useSound } from "./_layout";
 
 const BG = require("@/assets/images/game/bg-parchment.png");
 
@@ -71,9 +72,17 @@ function ResultContent({
 }) {
   const { width } = useWindowDimensions();
   const resultImage = getResultImage(myCredits, won);
+  const { playWinBgm, playLoseBgm } = useSound();
 
-  // 8秒後にLINE報告画面へ自動遷移
+  
   useEffect(() => {
+    // 勝ちなら win.mp3、負けなら lose.mp3 を再生
+    if (won) {
+      playWinBgm();
+    } else {
+      playLoseBgm();
+    }
+    // 8秒後にLINE報告画面へ自動遷移
     const t = setTimeout(() => router.replace(resultPath as any), 8000);
     return () => clearTimeout(t);
   }, []);

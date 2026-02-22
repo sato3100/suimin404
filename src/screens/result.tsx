@@ -17,6 +17,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { getLastResult, getLastOnlineResult } from "@/game/store";
+import { useSound } from "./_layout";
 
 // ─── LINE風カラー定数 ────────────────────────────────────────────────────────
 const LINE = {
@@ -44,11 +45,11 @@ interface ChatMessage {
 function getChatMessages(
   ending: string,
   credits: number,
-  onlineWon?: boolean,
+  won?: boolean,
 ): ChatMessage[] {
   const suffix =
-    onlineWon !== undefined
-      ? onlineWon
+    won !== undefined
+      ? won
         ? "（対戦も勝ったよ！）"
         : "（対戦は負けちゃったけど）"
       : "";
@@ -81,23 +82,48 @@ function getChatMessages(
         { sender: "mom", text: "😔", isSticker: true },
       ];
     case "graduate":
-      return [
-        { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
-        { sender: "player", text: `お母さん、卒業できたよ${suffix}` },
-        { sender: "mom", text: "おめでとう！何単位だったの？" },
-        { sender: "player", text: `${credits}単位で卒業！` },
-        { sender: "mom", text: "まぁ及第点ね" },
-        { sender: "mom", text: "🎓", isSticker: true },
-      ];
+      if (won) {
+        return [
+          { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
+          { sender: "player", text: `お母さん、対戦も勝ったし無事に卒業できたよ！` },
+          { sender: "mom", text: "おめでとう！頑張ったわね！" },
+          { sender: "player", text: `${credits}単位取れたから心置きなく遊べる！` },
+          { sender: "mom", text: "遊んでないで早く就活しなさい" },
+          { sender: "mom", text: "🎓", isSticker: true },
+        ];
+      } else {
+        return [
+          { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
+          { sender: "player", text: `対戦には負けちゃったけど...なんとか卒業はできたよ！` },
+          { sender: "mom", text: "まぁ、学生の本分は卒業することだからね" },
+          { sender: "player", text: `${credits}単位！` },
+          { sender: "mom", text: "よく頑張りました" },
+          { sender: "mom", text: "💮", isSticker: true },
+        ];
+      }
     case "repeat":
-      return [
-        { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
-        { sender: "player", text: "お母さん..." },
-        { sender: "mom", text: "どうしたの？" },
-        { sender: "player", text: `ごめん、${credits}単位で...もう一年遊べるドン！` },
-        { sender: "mom", text: "😡😡😡", isSticker: true },
-        { sender: "mom", text: "仕送りカットね" },
-      ];
+      if (won) {
+        return [
+          { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
+          { sender: "player", text: "お母さん聞いて！対戦チキンレース勝ったよ！！" },
+          { sender: "mom", text: "すごいじゃない！で、単位はどうだったの？" },
+          { sender: "player", text: `そっちは${credits}単位で留年した！` },
+          { sender: "mom", text: "は？" },
+          { sender: "mom", text: "ゲームしてる場合じゃないでしょ" },
+          { sender: "mom", text: "仕送り半分にします" },
+        ];
+      } else {
+        return [
+          { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
+          { sender: "player", text: "お母さん..." },
+          { sender: "mom", text: "どうしたの？" },
+          { sender: "player", text: `対戦も負けたし、${credits}単位しかなくて留年した...` },
+          { sender: "player", text: "もう大学辞めてYouTuberになります" },
+          { sender: "mom", text: "ふざけるな" },
+          { sender: "mom", text: "😡😡😡", isSticker: true },
+          { sender: "mom", text: "仕送り全額カットね" },
+        ];
+      }
     case "dropout":
       return [
         { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
@@ -109,8 +135,11 @@ function getChatMessages(
     default:
       return [
         { sender: "mom", text: "成績発表あったんでしょ？どうだったの" },
-        { sender: "player", text: `${credits}単位でした${suffix}` },
-        { sender: "mom", text: "お疲れ様" },
+        { sender: "player", text: "お母さん" },
+        { sender: "mom", text: "何？" },
+        { sender: "player", text: `単位少なすぎて（${credits}単位）、ついに除籍になりました` },
+        { sender: "player", text: "探さないでください" },
+        { sender: "player", text: "", isRead: true },
       ];
   }
 }
@@ -240,6 +269,7 @@ function LineScreen({
   endingTitle: string;
 }) {
   const insets = useSafeAreaInsets();
+  const { playChatSendSound} = useSound();
   // 表示済みメッセージ（確定分）
   const [shownMessages, setShownMessages] = useState<ChatMessage[]>([]);
   const [allShown, setAllShown] = useState(false);
@@ -290,6 +320,8 @@ function LineScreen({
   const handleSend = () => {
     const txt = inputText.trim();
     if (!txt) return;
+    //自分が送信した時は「送信音」を鳴らす
+    playChatSendSound();
     // 送信したメッセージをチャットに追加
     setShownMessages((prev) => [...prev, { sender: "player", text: txt }]);
     setInputText("");
@@ -489,7 +521,7 @@ function CpuResultScreen() {
   }
   return (
     <LineScreen
-      messages={getChatMessages(result.ending, result.playerCredits)}
+      messages={getChatMessages(result.ending, result.playerCredits, result.playerWon)}
       endingTitle={result.endingTitle}
     />
   );

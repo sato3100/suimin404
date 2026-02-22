@@ -133,7 +133,7 @@ export default function NameScreen() {
           >
             <Image
               source={require("@/assets/images/game/start-button.png")}
-              style={{ width: width * 0.75, height: width * 0.75 * 0.28 }}
+              style={{ width: width * 0.75 * 4, height: width * 0.75 * 0.28 * 4 }}
               resizeMode="contain"
             />
           </Pressable>

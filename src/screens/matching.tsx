@@ -11,6 +11,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
+import { useSound } from "./_layout";
 
 const BG = require("@/assets/images/game/bg-parchment.png");
 const IMG_TURN = require("@/assets/images/game/turn-badge.png");
@@ -47,6 +48,16 @@ export default function MatchingScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const plateW = width * 0.48;
+  const { playMatchSound } = useSound();
+
+  // 画面が開かれた時に「1回だけ」シャキーンを鳴らす
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      playMatchSound();
+    }, 400); 
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // シンプルなフェードイン用state
   const [showOpponent, setShowOpponent] = useState(false);
