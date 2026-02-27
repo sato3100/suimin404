@@ -1,60 +1,37 @@
-# Welcome to your Expo app 👋
+  # 卒業チキンレース ～目指せ！省エネ124単位～
 
-This is an [Expo](https://expo.dev) project created with
-[`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+  > 🏆 **スパジャム道場 2025 最優秀賞受賞作品**
+  <!-- 受賞写真 -->
+　![スパジャム道場2025 全体写真](https://github.com/user-attachments/assets/7e0fd896-7b58-4e86-acdc-166f5df83c73)
+  ![スパジャム道場2025 最優秀賞](https://github.com/user-attachments/assets/646492eb-0adc-48fb-9f09-5e0ccca0b586)
 
-## Get started
+  ---
 
-1. Install dependencies
+  ## ゲーム概要
 
-   ```bash
-   npm install
-   ```
+  大学生の「単位取得」をテーマにした 2人対戦カードゲームです。
+  
+  10ターンで **ちょうど124単位** を目指してカードを出し合い、
+  相手より賢く立ち回れ！
 
-2. Start the app
+  | エンディング | 条件 |
+  |---|---|
+  | **Perfect!** | ピッタリ124単位 |
+  | **Nerd** | 131単位以上 |
+  | **Graduate** | 124〜130単位 |
+  | **Repeat...** | 100〜123単位 |
+  | **Dropout** | 99単位以下 |
 
-   ```bash
-   npx expo start
-   ```
+  ## 技術スタック
 
-In the output, you'll find options to open the app in a
+  - **Expo** (React Native + TypeScript)
+  - **NativeWind v4** (Tailwind CSS)
+  - **Firebase** v12 (Firestore + Auth)
+  - **react-native-reanimated** v4
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app
-  development with Expo
+  ## セットアップ
 
-You can start developing by editing the files inside the **app** directory. This
-project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and
-create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following
-resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into
-  advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a
-  step-by-step tutorial where you'll create a project that runs on Android, iOS,
-  and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform
-  and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask
-  questions.
+  ```bash
+  npm install
+  # .env を作成して Firebase の設定を記入
+  npm start
